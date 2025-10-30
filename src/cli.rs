@@ -1,4 +1,4 @@
-use std::{io::Write, path::PathBuf};
+use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
 
@@ -54,7 +54,7 @@ pub fn repl() {
         };
         match parser::parse_program(&mut lexer) {
             Ok(ptree) => println!(
-                "[{}]",
+                "==> {}",
                 ptree
                     .iter()
                     .map(Expr::to_string)

@@ -18,6 +18,31 @@ impl Display for Expr {
             Expr::Constructor(c) => write!(f, "{c}"),
             Expr::Proj(p) => write!(f, "{p}"),
             Expr::Object(o) => write!(f, "{o}"),
+            Expr::Array(a) => write!(f, "{a}"),
+            Expr::Vector(v) => write!(f, "{v}"),
+        }
+    }
+}
+
+impl Display for Array {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "[{}]",
+            self.exprs
+                .iter()
+                .map(Expr::to_string)
+                .reduce(comma_join)
+                .unwrap_or_default()
+        )
+    }
+}
+
+impl Display for Vector {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self.count {
+            Some(count) => write!(f, "[{}]{}", count, self.expr),
+            None => write!(f, "[]{}", self.expr),
         }
     }
 }

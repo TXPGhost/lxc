@@ -32,6 +32,9 @@ pub enum ParseError {
 
     /// The parser encountered an unrecognized [Token].
     UnrecognizedToken(UnrecognizedTokenError),
+
+    /// Two or more lengths were provided to a vector expression.
+    IllegalVector(usize),
 }
 
 impl<'source, const LOOKAHEAD: usize> Lexer<'source, LOOKAHEAD> {
@@ -106,6 +109,40 @@ impl<'source, const LOOKAHEAD: usize> Lexer<'source, LOOKAHEAD> {
     }
 }
 
+/// A group of pratt-parsed operators of equal precedence with a given operator associativity.
+pub struct PrattGroup<'a> {
+    kinds: &'a [InfixKind],
+    assoc: Assoc,
+}
+
+impl<'a> PrattGroup<'a> {
+    /// Constructs a new left-associative pratt parsing group.
+    pub fn left(kinds: &'a [InfixKind]) -> Self {
+        Self {
+            kinds,
+            assoc: Assoc::Left,
+        }
+    }
+
+    /// Constructs a new right-associative pratt parsing group.
+    pub fn right(kinds: &'a [InfixKind]) -> Self {
+        Self {
+            kinds,
+            assoc: Assoc::Right,
+        }
+    }
+}
+
+/// Infix operator associativity.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Assoc {
+    /// Left-associative (e.g. `x $ y $ z` is parsed as `(x $ y) $ z`).
+    Left,
+
+    /// Right-associative (e.g. `x $ y $ z` is parsed as `x $ (y $ z)`).
+    Right,
+}
+
 impl InfixKind {
     /// Returns the token associated with this infix operator.
     pub const fn tok(self) -> Token {
@@ -158,8 +195,32 @@ pub fn parse_ident(lexer: &mut Lexer<'_, 2>) -> Result<Expr, ParseError> {
     Err(ParseError::Custom("expected identifier"))
 }
 
-/// Attempts to parse a single-token expression (e.g. identifiers, numbers, strings).
-pub fn parse_single_token_expr(lexer: &mut Lexer<'_, 2>) -> Result<Expr, ParseError> {
+/// Attempts to parse an array literal or a vector expression.
+pub fn parse_array_or_vec(lexer: &mut Lexer<'_, 2>) -> Result<Expr, ParseError> {
+    lexer.expect(Token::LSquare)?;
+    let exprs = parse_list(lexer, parse_expr)?;
+    lexer.expect(Token::RSquare)?;
+    match parse_atomic_expression(lexer) {
+        Ok(expr) => match exprs.len() {
+            0 => Ok(Expr::Vector(Vector {
+                count: None,
+                expr: Box::new(expr),
+            })),
+            1 => Ok(Expr::Vector(Vector {
+                count: Some(Box::new(exprs.into_iter().next().unwrap())),
+                expr: Box::new(expr),
+            })),
+            n => Err(ParseError::IllegalVector(n)),
+        },
+        Err(_) => Ok(Expr::Array(Array { exprs })),
+    }
+}
+
+/// Attempts to parse an atomic expression (e.g. identifiers, numbers, strings, array literals).
+pub fn parse_atomic_expression(lexer: &mut Lexer<'_, 2>) -> Result<Expr, ParseError> {
+    if lexer.peek_matches(Token::LSquare) {
+        return parse_array_or_vec(lexer);
+    }
     if lexer.peek_matches(Token::Integer) {
         return parse_number(lexer);
     }
@@ -175,9 +236,9 @@ pub fn parse_single_token_expr(lexer: &mut Lexer<'_, 2>) -> Result<Expr, ParseEr
     Err(ParseError::Custom("expected atomic expression"))
 }
 
-/// Attempts to parse an atomic expression (e.g. constructors, function calls).
-pub fn parse_atomic_expr(lexer: &mut Lexer<'_, 2>) -> Result<Expr, ParseError> {
-    let mut expr = parse_single_token_expr(lexer)?;
+/// Attempts to parse a suffix expression (e.g. constructors, function calls).
+pub fn parse_suffix_expr(lexer: &mut Lexer<'_, 2>) -> Result<Expr, ParseError> {
+    let mut expr = parse_atomic_expression(lexer)?;
 
     loop {
         // Projections
@@ -196,7 +257,7 @@ pub fn parse_atomic_expr(lexer: &mut Lexer<'_, 2>) -> Result<Expr, ParseError> {
         // Constructors
         if lexer.peek_matches(Token::LCurl) {
             lexer.expect(Token::LCurl)?;
-            let args = parse_list(lexer, parse_atomic_expr)?;
+            let args = parse_list(lexer, parse_expr)?;
             lexer.expect(Token::RCurl)?;
             expr = Expr::Constructor(Constructor {
                 ty: Box::new(expr),
@@ -223,10 +284,12 @@ pub fn parse_atomic_expr(lexer: &mut Lexer<'_, 2>) -> Result<Expr, ParseError> {
 }
 
 /// Attempts to parse a right-recursive binary operator expression with the given follow-up parser.
+/// The provided infix operator kinds are treated with equal precedence, higher-precedence
+/// operators should belong to the passed in continuation.
 pub fn parse_right_recursive_expr(
     lexer: &mut Lexer<'_, 2>,
     kinds: &[InfixKind],
-    parser: fn(&mut Lexer<'_, 2>) -> Result<Expr, ParseError>,
+    parser: impl Fn(&mut Lexer<'_, 2>) -> Result<Expr, ParseError>,
 ) -> Result<Expr, ParseError> {
     let expr = parser(lexer)?;
     for kind in kinds {
@@ -243,10 +306,12 @@ pub fn parse_right_recursive_expr(
 }
 
 /// Attempts to parse a left-recursive binary operator expression with the given follow-up parser.
+/// The provided infix operator kinds are treated with equal precedence, higher-precedence
+/// operators should belong to the passed in continuation.
 pub fn parse_left_recursive_expr(
     lexer: &mut Lexer<'_, 2>,
     kinds: &[InfixKind],
-    parser: fn(&mut Lexer<'_, 2>) -> Result<Expr, ParseError>,
+    parser: impl Fn(&mut Lexer<'_, 2>) -> Result<Expr, ParseError>,
 ) -> Result<Expr, ParseError> {
     let mut expr = parser(lexer)?;
     loop {
@@ -270,11 +335,35 @@ pub fn parse_left_recursive_expr(
     Ok(expr)
 }
 
+/// Parses a group of operators according to pratt parsing rules. Pratt groups provided in the
+/// `groups` slice are of increasing precedence. Operators _within_ the same group are of equal
+/// precedence.
+pub fn parse_pratt(lexer: &mut Lexer<'_, 2>, groups: &[PrattGroup]) -> Result<Expr, ParseError> {
+    match groups {
+        [] => parse_suffix_expr(lexer),
+        _ => {
+            let group = &groups[0];
+            match group.assoc {
+                Assoc::Left => parse_left_recursive_expr(lexer, group.kinds, |lexer| {
+                    parse_pratt(lexer, &groups[1..])
+                }),
+                Assoc::Right => parse_right_recursive_expr(lexer, group.kinds, |lexer| {
+                    parse_pratt(lexer, &groups[1..])
+                }),
+            }
+        }
+    }
+}
+
 /// Attempts to parse an expression.
 pub fn parse_expr(lexer: &mut Lexer<'_, 2>) -> Result<Expr, ParseError> {
-    parse_left_recursive_expr(lexer, &[InfixKind::Add, InfixKind::Sub], |lexer| {
-        parse_left_recursive_expr(lexer, &[InfixKind::Mul, InfixKind::Div], parse_atomic_expr)
-    })
+    parse_pratt(
+        lexer,
+        &[
+            PrattGroup::left(&[InfixKind::Add, InfixKind::Sub]),
+            PrattGroup::left(&[InfixKind::Mul, InfixKind::Div]),
+        ],
+    )
 }
 
 /// Attempts to parse an entire program, emits an error on trailing tokens.
@@ -290,7 +379,7 @@ pub fn parse_program(lexer: &mut Lexer<'_, 2>) -> Result<Vec<Expr>, ParseError> 
 /// Attempts to parse a comma/newline-separated list with the given parser.
 pub fn parse_list<T>(
     lexer: &mut Lexer<'_, 2>,
-    parser: fn(&mut Lexer<'_, 2>) -> Result<T, ParseError>,
+    parser: impl Fn(&mut Lexer<'_, 2>) -> Result<T, ParseError>,
 ) -> Result<Vec<T>, ParseError> {
     let mut result = Vec::new();
     let mut first = true;
@@ -333,6 +422,6 @@ pub fn parse_arg(lexer: &mut Lexer<'_, 2>) -> Result<Arg, ParseError> {
     Ok(Arg {
         ident,
         is_mut,
-        expr: parse_atomic_expr(lexer)?,
+        expr: parse_expr(lexer)?,
     })
 }

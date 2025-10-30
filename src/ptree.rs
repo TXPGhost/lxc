@@ -30,6 +30,29 @@ pub enum Expr {
 
     /// An object definition expression.
     Object(Object),
+
+    /// An array literal expression, e.g. `[1, 2, 3, 4, 5]`.
+    Array(Array),
+
+    /// A vector expression, e.g. `[5]I32` or `[]I32`.
+    Vector(Vector),
+}
+
+/// An array literal expression.
+#[derive(Debug)]
+pub struct Array {
+    /// The list of expressions.
+    pub exprs: Vec<Expr>,
+}
+
+/// An vector expression.
+#[derive(Debug)]
+pub struct Vector {
+    /// The repeat count.
+    pub count: Option<Box<Expr>>,
+
+    /// The repeated expression/type.
+    pub expr: Box<Expr>,
 }
 
 /// A field access expression.
