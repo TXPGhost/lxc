@@ -225,17 +225,19 @@ pub fn parse_atomic_expr(lexer: &mut Lexer<'_, 2>) -> Result<Expr, ParseError> {
 /// Attempts to parse a right-recursive binary operator expression with the given follow-up parser.
 pub fn parse_right_recursive_expr(
     lexer: &mut Lexer<'_, 2>,
-    kind: InfixKind,
+    kinds: &[InfixKind],
     parser: fn(&mut Lexer<'_, 2>) -> Result<Expr, ParseError>,
 ) -> Result<Expr, ParseError> {
     let expr = parser(lexer)?;
-    if lexer.peek_matches(kind.tok()) {
-        lexer.expect(kind.tok())?;
-        return Ok(Expr::Infix(Infix {
-            kind,
-            lhs: Box::new(expr),
-            rhs: Box::new(parse_right_recursive_expr(lexer, kind, parser)?),
-        }));
+    for kind in kinds {
+        if lexer.peek_matches(kind.tok()) {
+            lexer.expect(kind.tok())?;
+            return Ok(Expr::Infix(Infix {
+                kind: *kind,
+                lhs: Box::new(expr),
+                rhs: Box::new(parse_right_recursive_expr(lexer, kinds, parser)?),
+            }));
+        }
     }
     Ok(expr)
 }
@@ -243,24 +245,36 @@ pub fn parse_right_recursive_expr(
 /// Attempts to parse a left-recursive binary operator expression with the given follow-up parser.
 pub fn parse_left_recursive_expr(
     lexer: &mut Lexer<'_, 2>,
-    kind: InfixKind,
+    kinds: &[InfixKind],
     parser: fn(&mut Lexer<'_, 2>) -> Result<Expr, ParseError>,
 ) -> Result<Expr, ParseError> {
     let mut expr = parser(lexer)?;
-    while lexer.peek_matches(kind.tok()) {
-        lexer.expect(kind.tok())?;
-        expr = Expr::Infix(Infix {
-            kind,
-            lhs: Box::new(expr),
-            rhs: Box::new(parser(lexer)?),
-        });
+    loop {
+        let mut matched = false;
+        for kind in kinds {
+            if lexer.peek_matches(kind.tok()) {
+                lexer.expect(kind.tok())?;
+                expr = Expr::Infix(Infix {
+                    kind: *kind,
+                    lhs: Box::new(expr),
+                    rhs: Box::new(parser(lexer)?),
+                });
+                matched = true;
+                break;
+            }
+        }
+        if !matched {
+            break;
+        }
     }
     Ok(expr)
 }
 
 /// Attempts to parse an expression.
 pub fn parse_expr(lexer: &mut Lexer<'_, 2>) -> Result<Expr, ParseError> {
-    parse_left_recursive_expr(lexer, InfixKind::Add, parse_atomic_expr)
+    parse_left_recursive_expr(lexer, &[InfixKind::Add, InfixKind::Sub], |lexer| {
+        parse_left_recursive_expr(lexer, &[InfixKind::Mul, InfixKind::Div], parse_atomic_expr)
+    })
 }
 
 /// Attempts to parse an entire program, emits an error on trailing tokens.
