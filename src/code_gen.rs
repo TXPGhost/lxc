@@ -43,13 +43,32 @@ impl CodeGen for Expr {
                 .i64_type()
                 .const_int(*v as u64, false)
                 .as_any_value_enum(),
-            Expr::Add(lhs, rhs) => {
-                let lhs = lhs.code_gen(ctxt).into_int_value();
-                let rhs = rhs.code_gen(ctxt).into_int_value();
-                ctxt.builder
-                    .build_int_add(lhs, rhs, "sum")
-                    .unwrap()
-                    .as_any_value_enum()
+            Expr::Infix(infix) => {
+                let lhs = infix.lhs.code_gen(ctxt).into_int_value();
+                let rhs = infix.rhs.code_gen(ctxt).into_int_value();
+
+                match infix.kind {
+                    InfixKind::Add => ctxt
+                        .builder
+                        .build_int_add(lhs, rhs, "add_result")
+                        .unwrap()
+                        .as_any_value_enum(),
+                    InfixKind::Sub => ctxt
+                        .builder
+                        .build_int_sub(lhs, rhs, "sub_result")
+                        .unwrap()
+                        .as_any_value_enum(),
+                    InfixKind::Mul => ctxt
+                        .builder
+                        .build_int_mul(lhs, rhs, "mul_result")
+                        .unwrap()
+                        .as_any_value_enum(),
+                    InfixKind::Div => ctxt
+                        .builder
+                        .build_int_signed_div(lhs, rhs, "div_result")
+                        .unwrap()
+                        .as_any_value_enum(),
+                }
             }
             Expr::Constructor(constructor) => todo!(),
             _ => todo!(),

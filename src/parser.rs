@@ -35,7 +35,9 @@ pub enum ParseError {
 }
 
 impl<'source, const LOOKAHEAD: usize> Lexer<'source, LOOKAHEAD> {
-    fn expect(&mut self, expected: Token) -> Result<&'source str, ParseError> {
+    /// Consumes the next [Token] and returns its slice, otherwise returns an error if it is
+    /// different from the expected token.
+    pub fn expect(&mut self, expected: Token) -> Result<&'source str, ParseError> {
         let found = self.next();
         let found = match found {
             None => return Err(ParseError::OutOfTokens),
@@ -48,7 +50,9 @@ impl<'source, const LOOKAHEAD: usize> Lexer<'source, LOOKAHEAD> {
         Ok(self.slice())
     }
 
-    fn expect_any(&mut self, expected: &[Token]) -> Result<&'source str, ParseError> {
+    /// Consumes the next [Token] and returns its slice, otherwise returns an error if it is
+    /// not equal to any of the expected tokens.
+    pub fn expect_any(&mut self, expected: &[Token]) -> Result<&'source str, ParseError> {
         let found = self.next();
         let found = match found {
             None => return Err(ParseError::OutOfTokens),
@@ -66,15 +70,18 @@ impl<'source, const LOOKAHEAD: usize> Lexer<'source, LOOKAHEAD> {
         })
     }
 
-    fn peek_matches(&self, matches: Token) -> bool {
+    /// Returns [true] if the next token matches the given one, without consuming the token.
+    pub fn peek_matches(&self, matches: Token) -> bool {
         self.peek() == Some(matches)
     }
 
-    fn peekn_matches(&self, n: usize, matches: Token) -> bool {
+    /// Returns [true] if the nth next token matches the given one, without consuming the token.
+    pub fn peekn_matches(&self, n: usize, matches: Token) -> bool {
         self.peekn(n) == Some(matches)
     }
 
-    fn peek_matches_any(&self, matches: &[Token]) -> bool {
+    /// Returns [true] if the next token matches any of the given ones, without consuming the token.
+    pub fn peek_matches_any(&self, matches: &[Token]) -> bool {
         for token in matches {
             if self.peek() == Some(*token) {
                 return true;
@@ -83,7 +90,8 @@ impl<'source, const LOOKAHEAD: usize> Lexer<'source, LOOKAHEAD> {
         false
     }
 
-    fn peekn_matches_any(&self, n: usize, matches: &[Token]) -> bool {
+    /// Returns [true] if the nth next token matches any of the given ones, without consuming the token.
+    pub fn peekn_matches_any(&self, n: usize, matches: &[Token]) -> bool {
         for token in matches {
             if self.peekn(n) == Some(*token) {
                 return true;
@@ -92,8 +100,21 @@ impl<'source, const LOOKAHEAD: usize> Lexer<'source, LOOKAHEAD> {
         false
     }
 
-    fn has_next(&self) -> bool {
+    /// Returns [true] if the lexer has a next token, or [false] if we are out of tokens.
+    pub fn has_next(&self) -> bool {
         self.peek().is_some()
+    }
+}
+
+impl InfixKind {
+    /// Returns the token associated with this infix operator.
+    pub const fn tok(self) -> Token {
+        match self {
+            InfixKind::Add => Token::Plus,
+            InfixKind::Sub => Token::Minus,
+            InfixKind::Mul => Token::Times,
+            InfixKind::Div => Token::Divide,
+        }
     }
 }
 
@@ -137,8 +158,8 @@ pub fn parse_ident(lexer: &mut Lexer<'_, 2>) -> Result<Expr, ParseError> {
     Err(ParseError::Custom("expected identifier"))
 }
 
-/// Attempts to parse an atomic expression.
-pub fn parse_atomic_expr(lexer: &mut Lexer<'_, 2>) -> Result<Expr, ParseError> {
+/// Attempts to parse a single-token expression (e.g. identifiers, numbers, strings).
+pub fn parse_single_token_expr(lexer: &mut Lexer<'_, 2>) -> Result<Expr, ParseError> {
     if lexer.peek_matches(Token::Integer) {
         return parse_number(lexer);
     }
@@ -154,38 +175,92 @@ pub fn parse_atomic_expr(lexer: &mut Lexer<'_, 2>) -> Result<Expr, ParseError> {
     Err(ParseError::Custom("expected atomic expression"))
 }
 
-/// Attempts to parse an expression.
-pub fn parse_expr(lexer: &mut Lexer<'_, 2>) -> Result<Expr, ParseError> {
-    // Array literals
+/// Attempts to parse an atomic expression (e.g. constructors, function calls).
+pub fn parse_atomic_expr(lexer: &mut Lexer<'_, 2>) -> Result<Expr, ParseError> {
+    let mut expr = parse_single_token_expr(lexer)?;
 
-    // Atomic and suffix expressions
-    let expr = parse_atomic_expr(lexer)?;
+    loop {
+        // Projections
+        if lexer.peek_matches(Token::Dot) {
+            lexer.expect(Token::Dot)?;
+            let field = lexer
+                .expect_any(&[Token::LIdent, Token::UIdent])?
+                .to_owned();
+            expr = Expr::Proj(Proj {
+                object: Box::new(expr),
+                field,
+            });
+            continue;
+        }
 
-    // Constructors
-    if let Expr::UIdent(_) = &expr
-        && lexer.peek_matches(Token::LCurl)
-    {
-        let Expr::UIdent(ident) = expr else {
-            unreachable!()
-        };
-        lexer.expect(Token::LCurl)?;
-        let args = parse_list(lexer, parse_expr)?;
-        lexer.expect(Token::RCurl)?;
-        return Ok(Expr::Constructor(Constructor { ident, args }));
+        // Constructors
+        if lexer.peek_matches(Token::LCurl) {
+            lexer.expect(Token::LCurl)?;
+            let args = parse_list(lexer, parse_atomic_expr)?;
+            lexer.expect(Token::RCurl)?;
+            expr = Expr::Constructor(Constructor {
+                ty: Box::new(expr),
+                args,
+            });
+            continue;
+        }
+
+        // Function calls
+        if lexer.peek_matches(Token::LParen) {
+            lexer.expect(Token::LParen)?;
+            let args = parse_list(lexer, parse_arg)?;
+            lexer.expect(Token::RParen)?;
+            expr = Expr::Call(Call {
+                func: Box::new(expr),
+                args,
+            });
+            continue;
+        }
+
+        // Fallthrough
+        return Ok(expr);
     }
+}
 
-    // Function calls
-    if lexer.peek_matches(Token::LParen) {
-        lexer.expect(Token::LParen)?;
-        let args = parse_list(lexer, parse_arg)?;
-        lexer.expect(Token::RParen)?;
-        return Ok(Expr::Call(Call {
-            func: Box::new(expr),
-            args,
+/// Attempts to parse a right-recursive binary operator expression with the given follow-up parser.
+pub fn parse_right_recursive_expr(
+    lexer: &mut Lexer<'_, 2>,
+    kind: InfixKind,
+    parser: fn(&mut Lexer<'_, 2>) -> Result<Expr, ParseError>,
+) -> Result<Expr, ParseError> {
+    let expr = parser(lexer)?;
+    if lexer.peek_matches(kind.tok()) {
+        lexer.expect(kind.tok())?;
+        return Ok(Expr::Infix(Infix {
+            kind,
+            lhs: Box::new(expr),
+            rhs: Box::new(parse_right_recursive_expr(lexer, kind, parser)?),
         }));
     }
-
     Ok(expr)
+}
+
+/// Attempts to parse a left-recursive binary operator expression with the given follow-up parser.
+pub fn parse_left_recursive_expr(
+    lexer: &mut Lexer<'_, 2>,
+    kind: InfixKind,
+    parser: fn(&mut Lexer<'_, 2>) -> Result<Expr, ParseError>,
+) -> Result<Expr, ParseError> {
+    let mut expr = parser(lexer)?;
+    while lexer.peek_matches(kind.tok()) {
+        lexer.expect(kind.tok())?;
+        expr = Expr::Infix(Infix {
+            kind,
+            lhs: Box::new(expr),
+            rhs: Box::new(parser(lexer)?),
+        });
+    }
+    Ok(expr)
+}
+
+/// Attempts to parse an expression.
+pub fn parse_expr(lexer: &mut Lexer<'_, 2>) -> Result<Expr, ParseError> {
+    parse_left_recursive_expr(lexer, InfixKind::Add, parse_atomic_expr)
 }
 
 /// Attempts to parse an entire program, emits an error on trailing tokens.
@@ -244,6 +319,6 @@ pub fn parse_arg(lexer: &mut Lexer<'_, 2>) -> Result<Arg, ParseError> {
     Ok(Arg {
         ident,
         is_mut,
-        expr: parse_expr(lexer)?,
+        expr: parse_atomic_expr(lexer)?,
     })
 }

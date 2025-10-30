@@ -2,16 +2,16 @@
 
 //! The Lx Programming Language Compiler
 
-/// The lexer.
+/// The lexer based on the [logos] crate.
 pub mod lexer;
 
-/// The parser.
+/// A hand-written pratt parser.
 pub mod parser;
 
-/// Code generation.
+/// LLVM code generation.
 pub mod code_gen;
 
-/// The parse tree.
+/// The parse tree emitted from the parser.
 pub mod ptree;
 
 /// The command-line interface.

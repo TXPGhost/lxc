@@ -33,13 +33,14 @@ pub fn cli() {
 /// Runs the interactive shell.
 pub fn repl() {
     let mut user_input = String::new();
-    let mut stdout = std::io::stdout();
     let stdin = std::io::stdin();
     loop {
-        stdout.flush().unwrap();
-        stdin
+        let nbyte = stdin
             .read_line(&mut user_input)
             .expect("couldn't read stdin");
+        if nbyte == 0 {
+            break;
+        }
 
         if user_input.trim().is_empty() {
             continue;

@@ -16,27 +16,59 @@ pub enum Expr {
     /// A constant 64-bit signed integer value, e.g. `42`.
     I64(i64),
 
-    /// An add expression, e.g. `x + y`.
-    Add(Box<Expr>, Box<Expr>),
+    /// A binary operator expression, e.g. `x + y`.
+    Infix(Infix),
 
     /// A function call expression, e.g. `fn(arg0, arg1, arg2)`.
     Call(Call),
 
     /// An object constructor, e.g. `Vector3{1.0, 2.0, 3.0}`.
     Constructor(Constructor),
+
+    /// A field projection expression, e.g. `object.field`.
+    Proj(Proj),
+
+    /// An object definition expression.
+    Object(Object),
 }
 
-/// A type.
+/// A field access expression.
 #[derive(Debug)]
-pub enum Type {
-    /// An identified type, e.g. `Vector3`.
-    Ident(String),
+pub struct Proj {
+    /// The object.
+    pub object: Box<Expr>,
 
-    /// A 64-bit signed integer type.
-    I64,
+    /// The field.
+    pub field: String,
+}
 
-    /// An object type.
-    Object(Object),
+/// An infix operator expression.
+#[derive(Debug)]
+pub struct Infix {
+    /// The kind of binary operator.
+    pub kind: InfixKind,
+
+    /// The left-hand-side argument.
+    pub lhs: Box<Expr>,
+
+    /// The right-hand-side argument.
+    pub rhs: Box<Expr>,
+}
+
+/// A kind of infix operator.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum InfixKind {
+    /// Addition (e.g. `lhs + rhs`).
+    Add,
+
+    /// Subtraction (e.g. `lhs - rhs`).
+    Sub,
+
+    /// Multiplication (e.g. `lhs * rhs`).
+    Mul,
+
+    /// Division (e.g. `lhs / rhs`).
+    Div,
 }
 
 /// A function, with parameters and a body.
@@ -108,15 +140,15 @@ pub struct Object {
 /// An object constructor, coexpr: parse_expr(lexer)? nsisting of an object type and an initializer list.
 #[derive(Debug)]
 pub struct Constructor {
-    /// The identifier of the object type, e.g. `Vector3`.
-    pub ident: String,
+    /// The the object type being constructed, e.g. `Vector3`.
+    pub ty: Box<Expr>,
 
     /// The initializer list for the constructor, e.g. `{1.0, 2.0, 3.0}`.
     pub args: Vec<Expr>,
 }
 
 /// A visibility modifier that can be applied to object fields.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Visibility {
     /// The default visibility modifier, which grants readonly access to the outside world while
     /// granting read/write access to the object internally.
@@ -141,7 +173,7 @@ pub struct Field {
     pub ident: String,
 
     /// The field's type.
-    pub ty: Type,
+    pub ty: Expr,
 }
 
 /// An argument to a function.
@@ -171,8 +203,8 @@ pub struct Param {
     pub name: String,
 }
 
-impl Type {
-    /// Returns `true` if this type should be passed by value (as opposed to being passed by
+impl Expr {
+    /// Returns `true` if this expr/type should be passed by value (as opposed to being passed by
     /// reference). This is the case iff:
     ///
     /// 1. The type's computed size exceeds some constant amount
