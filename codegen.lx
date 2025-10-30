@@ -1,0 +1,26 @@
+CodeGen {
+	context: Context
+	module: Module
+	builder: Builder
+	execution_engine: ExecutionEngine
+
+	&jit_compile_sum() -> Option<JitFunction<SumFunc>> {
+		i64t = context.i64_type()
+		fn_t = i64_t.fn_type([i64_t, i64_t, i64_t], false)
+		function = module.add_function("sum", fn_t, None)
+		basic_block = context.append_basic_block(function, "entry")
+
+		builder.position_at_end(basic_block)
+
+		x = function.get_nth_param(0)?.into_int_value()
+		y = function.get_nth_param(1)?.into_int_value()
+		z = function.get_nth_param(2)?.into_int_value()
+
+		sum = builder.build_int_add(x, y, "sum").unwrap()
+		sum = builder.build_int_add(sum, z, "sum").unwrap()
+
+		builder.build_return(Some(sum)).unwrap()
+
+		execution_engine.get_function("sum").ok()
+	}
+}
