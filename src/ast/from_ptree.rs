@@ -66,6 +66,10 @@ impl From<ptree::Stmt> for Stmt {
                 expr: Expr::from(expr),
             }),
             ptree::Stmt::Return(expr) => Stmt::Return(Expr::from(expr)),
+            ptree::Stmt::Expr(expr) => Stmt::Assn(Assn {
+                ident: Ident::void(),
+                expr: Expr::from(expr),
+            }),
         }
     }
 }

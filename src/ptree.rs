@@ -45,8 +45,18 @@ pub struct Ident {
     pub kind: IdentKind,
 }
 
+impl Ident {
+    /// Generates an instance of the void identifier.
+    pub fn void() -> Self {
+        Self {
+            name: "_".to_owned(),
+            kind: IdentKind::Void,
+        }
+    }
+}
+
 /// An identifier kind, based on capitalization of the first letter and/or a leading underscore.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum IdentKind {
     /// A userland value identifier.
     Value,
@@ -59,6 +69,9 @@ pub enum IdentKind {
 
     /// A builtin type identifier, prefixed by `_` (e.g. `_I32`).
     BuiltinType,
+
+    /// The void identifier (`_`), which binds to nothing
+    Void,
 }
 
 /// An array literal expression.
@@ -166,6 +179,9 @@ pub enum Stmt {
 
     /// A return statement, e.g. `<- 42`.
     Return(Expr),
+
+    /// An expression statement, e.g. `obj.method()`
+    Expr(Expr),
 }
 
 /// An object/struct with a list of named fields and associated methods.

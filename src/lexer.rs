@@ -13,6 +13,9 @@ pub enum Token {
     #[token(r"=")]
     Equals,
 
+    #[token(r":=")]
+    ColonEquals,
+
     #[token(r"==")]
     EqualsEquals,
 
@@ -40,8 +43,11 @@ pub enum Token {
     #[token(r"?")]
     QuestionMark,
 
+    #[token(r"<-")]
+    LeftArrow,
+
     #[token(r"->")]
-    Arrow,
+    RightArrow,
 
     #[token(r"|")]
     Bar,
@@ -106,16 +112,19 @@ pub enum Token {
     #[regex(r"[\d]+\.[\d]+")]
     Float,
 
+    #[regex(r"_")]
+    Underscore,
+
     #[regex(r"[A-Z][a-zA-Z0-9]*")]
     UIdent,
 
-    #[regex(r"[_a-z][_a-z0-9]*")]
+    #[regex(r"[a-z][_a-z0-9]*")]
     LIdent,
 
-    #[regex(r"_[A-Z][a-zA-Z0-9]*")]
+    #[regex(r"_+[A-Z][a-zA-Z0-9]*")]
     UBIdent,
 
-    #[regex(r"_[_a-z][_a-z0-9]*")]
+    #[regex(r"_+[a-z][_a-z0-9]*")]
     LBIdent,
 
     #[regex(r#"["]([^"\\\n]|\\.|\\\n)*["]"#)]

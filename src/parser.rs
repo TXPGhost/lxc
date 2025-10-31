@@ -186,6 +186,13 @@ pub fn parse_string(lexer: &mut Lexer<'_, 2>) -> Result<Expr, ParseError> {
 
 /// Attempts to parse an identifier.
 pub fn parse_ident(lexer: &mut Lexer<'_, 2>) -> Result<Ident, ParseError> {
+    if lexer.peek_matches(Token::Underscore) {
+        let slice = lexer.expect(Token::Underscore)?;
+        return Ok(Ident {
+            name: slice.to_owned(),
+            kind: IdentKind::Void,
+        });
+    }
     if lexer.peek_matches(Token::LIdent) {
         let slice = lexer.expect(Token::LIdent)?;
         return Ok(Ident {
@@ -245,7 +252,13 @@ pub fn parse_array_or_vec(lexer: &mut Lexer<'_, 2>) -> Result<Expr, ParseError> 
 
 /// Attempts to parse an atomic expression (e.g. identifiers, numbers, strings, array literals).
 pub fn parse_atomic_expression(lexer: &mut Lexer<'_, 2>) -> Result<Expr, ParseError> {
-    if lexer.peek_matches_any(&[Token::LIdent, Token::UIdent, Token::LBIdent, Token::UBIdent]) {
+    if lexer.peek_matches_any(&[
+        Token::Underscore,
+        Token::LIdent,
+        Token::UIdent,
+        Token::LBIdent,
+        Token::UBIdent,
+    ]) {
         return Ok(Expr::Ident(parse_ident(lexer)?));
     }
     if lexer.peek_matches(Token::LParen) {
@@ -454,4 +467,45 @@ pub fn parse_arg(lexer: &mut Lexer<'_, 2>) -> Result<Arg, ParseError> {
         is_mut,
         expr: parse_expr(lexer)?,
     })
+}
+
+/// Attempts to parse a declaration statement.
+pub fn parse_decl(lexer: &mut Lexer<'_, 2>) -> Result<Stmt, ParseError> {
+    let ident = parse_ident(lexer)?;
+    lexer.expect(Token::Equals);
+    let expr = parse_expr(lexer)?;
+    Ok(Stmt::Decl(ident, expr))
+}
+
+/// Attempts to parse an assignment statement.
+pub fn parse_assn(lexer: &mut Lexer<'_, 2>) -> Result<Stmt, ParseError> {
+    let ident = parse_ident(lexer)?;
+    lexer.expect(Token::ColonEquals);
+    let expr = parse_expr(lexer)?;
+    Ok(Stmt::Assn(ident, expr))
+}
+
+/// Attempts to parse a return statement.
+pub fn parse_return(lexer: &mut Lexer<'_, 2>) -> Result<Stmt, ParseError> {
+    todo!()
+}
+
+/// Attempts to parse a statement.
+pub fn parse_stmt(lexer: &mut Lexer<'_, 2>) -> Result<Stmt, ParseError> {
+    // Declarations
+    if lexer.peekn_matches(1, Token::Equals) {
+        return parse_decl(lexer);
+    }
+
+    // Assignments
+    if lexer.peekn_matches(1, Token::ColonEquals) {
+        return parse_assn(lexer);
+    }
+
+    // Returns
+    if lexer.peek_matches(Token::LeftArrow) {
+        return parse_return(lexer);
+    }
+
+    Ok(Stmt::Expr(parse_expr(lexer)?))
 }

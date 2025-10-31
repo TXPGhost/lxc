@@ -3,7 +3,6 @@ use std::path::PathBuf;
 use clap::{Parser, Subcommand};
 
 use crate::{
-    ast,
     lexer::Lexer,
     parser::{self, ParseError},
 };
@@ -55,7 +54,7 @@ pub fn eval(user_input: &str) -> EvalResult {
     };
 
     // Parser step
-    let ptree = match parser::parse_program(&mut lexer) {
+    match parser::parse_program(&mut lexer) {
         Ok(ptree) => {
             println!("==> {ptree}");
             ptree
@@ -70,8 +69,6 @@ pub fn eval(user_input: &str) -> EvalResult {
     };
 
     // AST lowering
-    // let ast = ast::Expr::from(ptree);
-    // dbg!(&ast);
 
     EvalResult::Success
 }

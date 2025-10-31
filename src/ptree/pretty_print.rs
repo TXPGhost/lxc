@@ -10,7 +10,7 @@ const fn color(r: u8, g: u8, b: u8) -> Color {
 
 static IDT: Color = color(209, 209, 209);
 static OPR: Color = color(182, 182, 181);
-static PNC: Color = color(154, 154, 154);
+static PNC: Color = color(172, 172, 172);
 static LIT: Color = color(134, 175, 154);
 static KWD: Color = color(149, 179, 209);
 static FUN: Color = color(248, 198, 153);
@@ -142,23 +142,37 @@ impl Display for Param {
 
 impl Display for Proj {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}.{}", self.object, self.ident)
+        if self.ident.kind == IdentKind::Value {
+            write!(f, "{}.{}", self.object, self.ident.name.color(MBR))
+        } else {
+            write!(f, "{}.{}", self.object, self.ident)
+        }
     }
 }
 
 impl Display for Infix {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "({} {} {})", self.lhs, self.kind, self.rhs)
+        let lhs_str = if let Expr::Infix(infix) = &*self.lhs {
+            format!("{}{}{}", "(".color(PNC), infix, ")".color(PNC))
+        } else {
+            self.lhs.to_string()
+        };
+        let rhs_str = if let Expr::Infix(infix) = &*self.rhs {
+            format!("{}{}{}", "(".color(PNC), infix, ")".color(PNC))
+        } else {
+            self.rhs.to_string()
+        };
+        write!(f, "{} {} {}", lhs_str, self.kind, rhs_str)
     }
 }
 
 impl Display for InfixKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            InfixKind::Add => write!(f, "+"),
-            InfixKind::Sub => write!(f, "-"),
-            InfixKind::Mul => write!(f, "*"),
-            InfixKind::Div => write!(f, "/"),
+            InfixKind::Add => write!(f, "{}", "+".color(OPR)),
+            InfixKind::Sub => write!(f, "{}", "-".color(OPR)),
+            InfixKind::Mul => write!(f, "{}", "*".color(OPR)),
+            InfixKind::Div => write!(f, "{}", "/".color(OPR)),
         }
     }
 }
@@ -249,6 +263,7 @@ impl Display for Ident {
             }
             IdentKind::Value => write!(f, "{}", self.name.color(IDT)),
             IdentKind::Type => write!(f, "{}", self.name.color(TYP).bold()),
+            IdentKind::Void => write!(f, "{}", self.name.color(PNC)),
         }
     }
 }
