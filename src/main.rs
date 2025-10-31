@@ -14,6 +14,9 @@ pub mod code_gen;
 /// The parse tree emitted from the parser.
 pub mod ptree;
 
+/// The abstract syntax tree, a simplified form of the parse tree.
+pub mod ast;
+
 /// The command-line interface.
 pub mod cli;
 

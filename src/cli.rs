@@ -3,9 +3,9 @@ use std::path::PathBuf;
 use clap::{Parser, Subcommand};
 
 use crate::{
+    ast,
     lexer::Lexer,
     parser::{self, ParseError},
-    ptree::Expr,
 };
 
 #[derive(Parser)]
@@ -30,44 +30,73 @@ pub fn cli() {
     }
 }
 
+/// Program evaluation result.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum EvalResult {
+    /// Program evaluated successfully.
+    Success,
+
+    /// Ran out of tokens, program is incomplete.
+    Incomplete,
+
+    /// Fatal error occured during program evaluation.
+    Failure,
+}
+
+/// Evaluates user input.
+pub fn eval(user_input: &str) -> EvalResult {
+    // Lexer step
+    let mut lexer = match Lexer::new(user_input) {
+        Ok(lexer) => lexer,
+        Err(e) => {
+            println!("==> lexer error: {e:?}",);
+            return EvalResult::Failure;
+        }
+    };
+
+    // Parser step
+    let ptree = match parser::parse_program(&mut lexer) {
+        Ok(ptree) => {
+            println!("==> {ptree}");
+            ptree
+        }
+        Err(ParseError::OutOfTokens) => {
+            return EvalResult::Incomplete;
+        }
+        Err(e) => {
+            println!("==> parse error: {e:?}");
+            return EvalResult::Failure;
+        }
+    };
+
+    // AST lowering
+    // let ast = ast::Expr::from(ptree);
+    // dbg!(&ast);
+
+    EvalResult::Success
+}
+
 /// Runs the interactive shell.
 pub fn repl() {
     let mut user_input = String::new();
     let stdin = std::io::stdin();
     loop {
+        // Gather user input
         let nbyte = stdin
             .read_line(&mut user_input)
             .expect("couldn't read stdin");
         if nbyte == 0 {
             break;
         }
-
-        if user_input.trim().is_empty() {
+        let trimmed_input = user_input.trim();
+        if trimmed_input.is_empty() {
             continue;
         };
-        let mut lexer = match Lexer::new(&user_input) {
-            Ok(lexer) => lexer,
-            Err(e) => {
-                println!("lexer error: {e:?}",);
-                continue;
-            }
-        };
-        match parser::parse_program(&mut lexer) {
-            Ok(ptree) => println!(
-                "==> {}",
-                ptree
-                    .iter()
-                    .map(Expr::to_string)
-                    .reduce(|acc, s| acc + ", " + &s)
-                    .unwrap_or_default()
-            ),
-            Err(ParseError::OutOfTokens) => {
-                continue;
-            }
-            Err(e) => println!("parse error: {e:?}"),
-        }
 
-        user_input.clear();
+        match eval(trimmed_input) {
+            EvalResult::Success | EvalResult::Failure => user_input.clear(),
+            EvalResult::Incomplete => {}
+        }
     }
 }
 

@@ -4,11 +4,8 @@ pub mod pretty_print;
 /// An expression.
 #[derive(Debug)]
 pub enum Expr {
-    /// An expression identifier, e.g. `x`, which gets evaluated at runtime.
-    LIdent(String),
-
-    /// A type identifier, e.g. `x`, which gets evaluated at runtime.
-    UIdent(String),
+    /// An identifier, e.g. `x` or `y`.
+    Ident(Ident),
 
     /// A string literal, e.g. `"abcdef"`
     String(String),
@@ -38,6 +35,32 @@ pub enum Expr {
     Vector(Vector),
 }
 
+/// An identifier, e.g. `value` or `Type` or `_builtin`.
+#[derive(Debug)]
+pub struct Ident {
+    /// The identifier name.
+    pub name: String,
+
+    /// The identifier kind.
+    pub kind: IdentKind,
+}
+
+/// An identifier kind, based on capitalization of the first letter and/or a leading underscore.
+#[derive(Debug)]
+pub enum IdentKind {
+    /// A userland value identifier.
+    Value,
+
+    /// A userland type identifier.
+    Type,
+
+    /// A builtin value identifier, prefixed by `_` (e.g. `_add`).
+    BuiltinValue,
+
+    /// A builtin type identifier, prefixed by `_` (e.g. `_I32`).
+    BuiltinType,
+}
+
 /// An array literal expression.
 #[derive(Debug)]
 pub struct Array {
@@ -61,8 +84,8 @@ pub struct Proj {
     /// The object.
     pub object: Box<Expr>,
 
-    /// The field.
-    pub field: String,
+    /// The field identifier.
+    pub ident: Ident,
 }
 
 /// An infix operator expression.
@@ -136,10 +159,10 @@ pub struct Block {
 #[derive(Debug)]
 pub enum Stmt {
     /// A local variable declaration, e.g. `x = 10`.
-    Decl(String, Expr),
+    Decl(Ident, Expr),
 
     /// A local variable assignment, e.g. `x := 10`.
-    Assn(String, Expr),
+    Assn(Ident, Expr),
 
     /// A return statement, e.g. `<- 42`.
     Return(Expr),
@@ -193,7 +216,7 @@ pub struct Field {
     pub visibility: Visibility,
 
     /// The field's name, must be unique within the struct.
-    pub ident: String,
+    pub ident: Ident,
 
     /// The field's type.
     pub ty: Expr,
@@ -203,7 +226,7 @@ pub struct Field {
 #[derive(Debug)]
 pub struct Arg {
     /// Optional argument name.
-    pub ident: Option<String>,
+    pub ident: Option<Ident>,
 
     /// Indicates whether this argument is mutable. Mutable parameters are marked with the `&`
     /// decorator, indicating that the value may change from the caller's perspective as a result
@@ -223,7 +246,7 @@ pub struct Param {
     pub is_mut: bool,
 
     /// The parameter name identifier. Must be unique within the parameter list.
-    pub name: String,
+    pub ident: Ident,
 }
 
 impl Expr {

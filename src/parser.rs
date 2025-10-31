@@ -1,3 +1,5 @@
+use std::num::ParseIntError;
+
 use crate::{lexer::*, ptree::*};
 
 /// An error that can occur during parsing.
@@ -22,7 +24,13 @@ pub enum ParseError {
     },
 
     /// A custom error message.
-    Custom(&'static str),
+    Custom {
+        /// The error message.
+        message: &'static str,
+
+        /// The token at which the error occured.
+        at_token: Option<Token>,
+    },
 
     /// The parser ran out of [Token]s.
     OutOfTokens,
@@ -34,7 +42,13 @@ pub enum ParseError {
     UnrecognizedToken(UnrecognizedTokenError),
 
     /// Two or more lengths were provided to a vector expression.
-    IllegalVector(usize),
+    IllegalVector {
+        /// The number of count arguments provided to the vector.
+        num_count_arguments: usize,
+    },
+
+    /// Failed to parse an integer.
+    ParseIntError(ParseIntError),
 }
 
 impl<'source, const LOOKAHEAD: usize> Lexer<'source, LOOKAHEAD> {
@@ -159,9 +173,7 @@ impl InfixKind {
 pub fn parse_number(lexer: &mut Lexer<'_, 2>) -> Result<Expr, ParseError> {
     let slice = lexer.expect(Token::Integer)?;
     Ok(Expr::I64(
-        slice
-            .parse::<i64>()
-            .expect("lexer-valid number should always parse"),
+        slice.parse::<i64>().map_err(ParseError::ParseIntError)?,
     ))
 }
 
@@ -172,27 +184,40 @@ pub fn parse_string(lexer: &mut Lexer<'_, 2>) -> Result<Expr, ParseError> {
     Ok(Expr::String(s.to_owned()))
 }
 
-/// Attempts to parse a lowercase identifier.
-pub fn parse_lident(lexer: &mut Lexer<'_, 2>) -> Result<Expr, ParseError> {
-    let slice = lexer.expect(Token::LIdent)?;
-    Ok(Expr::LIdent(slice.to_owned()))
-}
-
-/// Attempts to parse an uppercase identifier.
-pub fn parse_uident(lexer: &mut Lexer<'_, 2>) -> Result<Expr, ParseError> {
-    let slice = lexer.expect(Token::UIdent)?;
-    Ok(Expr::UIdent(slice.to_owned()))
-}
-
 /// Attempts to parse an identifier.
-pub fn parse_ident(lexer: &mut Lexer<'_, 2>) -> Result<Expr, ParseError> {
+pub fn parse_ident(lexer: &mut Lexer<'_, 2>) -> Result<Ident, ParseError> {
     if lexer.peek_matches(Token::LIdent) {
-        return parse_lident(lexer);
+        let slice = lexer.expect(Token::LIdent)?;
+        return Ok(Ident {
+            name: slice.to_owned(),
+            kind: IdentKind::Value,
+        });
     }
     if lexer.peek_matches(Token::UIdent) {
-        return parse_uident(lexer);
+        let slice = lexer.expect(Token::UIdent)?;
+        return Ok(Ident {
+            name: slice.to_owned(),
+            kind: IdentKind::Type,
+        });
     }
-    Err(ParseError::Custom("expected identifier"))
+    if lexer.peek_matches(Token::LBIdent) {
+        let slice = lexer.expect(Token::LBIdent)?;
+        return Ok(Ident {
+            name: slice.to_owned(),
+            kind: IdentKind::BuiltinValue,
+        });
+    }
+    if lexer.peek_matches(Token::UBIdent) {
+        let slice = lexer.expect(Token::UBIdent)?;
+        return Ok(Ident {
+            name: slice.to_owned(),
+            kind: IdentKind::BuiltinType,
+        });
+    }
+    Err(ParseError::Custom {
+        message: "expected identifier",
+        at_token: lexer.peek(),
+    })
 }
 
 /// Attempts to parse an array literal or a vector expression.
@@ -210,7 +235,9 @@ pub fn parse_array_or_vec(lexer: &mut Lexer<'_, 2>) -> Result<Expr, ParseError> 
                 count: Some(Box::new(exprs.into_iter().next().unwrap())),
                 expr: Box::new(expr),
             })),
-            n => Err(ParseError::IllegalVector(n)),
+            n => Err(ParseError::IllegalVector {
+                num_count_arguments: n,
+            }),
         },
         Err(_) => Ok(Expr::Array(Array { exprs })),
     }
@@ -218,6 +245,15 @@ pub fn parse_array_or_vec(lexer: &mut Lexer<'_, 2>) -> Result<Expr, ParseError> 
 
 /// Attempts to parse an atomic expression (e.g. identifiers, numbers, strings, array literals).
 pub fn parse_atomic_expression(lexer: &mut Lexer<'_, 2>) -> Result<Expr, ParseError> {
+    if lexer.peek_matches_any(&[Token::LIdent, Token::UIdent, Token::LBIdent, Token::UBIdent]) {
+        return Ok(Expr::Ident(parse_ident(lexer)?));
+    }
+    if lexer.peek_matches(Token::LParen) {
+        lexer.expect(Token::LParen)?;
+        let expr = parse_expr(lexer)?;
+        lexer.expect(Token::RParen)?;
+        return Ok(expr);
+    }
     if lexer.peek_matches(Token::LSquare) {
         return parse_array_or_vec(lexer);
     }
@@ -227,13 +263,10 @@ pub fn parse_atomic_expression(lexer: &mut Lexer<'_, 2>) -> Result<Expr, ParseEr
     if lexer.peek_matches(Token::String) {
         return parse_string(lexer);
     }
-    if lexer.peek_matches(Token::LIdent) {
-        return parse_lident(lexer);
-    }
-    if lexer.peek_matches(Token::UIdent) {
-        return parse_uident(lexer);
-    }
-    Err(ParseError::Custom("expected atomic expression"))
+    Err(ParseError::Custom {
+        message: "expected atomic expression",
+        at_token: lexer.peek(),
+    })
 }
 
 /// Attempts to parse a suffix expression (e.g. constructors, function calls).
@@ -244,12 +277,10 @@ pub fn parse_suffix_expr(lexer: &mut Lexer<'_, 2>) -> Result<Expr, ParseError> {
         // Projections
         if lexer.peek_matches(Token::Dot) {
             lexer.expect(Token::Dot)?;
-            let field = lexer
-                .expect_any(&[Token::LIdent, Token::UIdent])?
-                .to_owned();
+            let ident = parse_ident(lexer)?;
             expr = Expr::Proj(Proj {
                 object: Box::new(expr),
-                field,
+                ident,
             });
             continue;
         }
@@ -367,8 +398,8 @@ pub fn parse_expr(lexer: &mut Lexer<'_, 2>) -> Result<Expr, ParseError> {
 }
 
 /// Attempts to parse an entire program, emits an error on trailing tokens.
-pub fn parse_program(lexer: &mut Lexer<'_, 2>) -> Result<Vec<Expr>, ParseError> {
-    let program = parse_list(lexer, parse_expr)?;
+pub fn parse_program(lexer: &mut Lexer<'_, 2>) -> Result<Expr, ParseError> {
+    let program = parse_expr(lexer)?;
     match lexer.next() {
         Some(Ok(token)) => Err(ParseError::TrailingToken(token)),
         Some(Err(e)) => Err(ParseError::UnrecognizedToken(e)),
@@ -406,14 +437,13 @@ pub fn parse_list<T>(
 /// Attempts to parse a function argument.
 pub fn parse_arg(lexer: &mut Lexer<'_, 2>) -> Result<Arg, ParseError> {
     let ident = if lexer.peek_matches(Token::LIdent) && lexer.peekn_matches(1, Token::Colon) {
-        lexer.expect(Token::LIdent)?;
-        let ident = lexer.slice().to_owned();
+        let ident = parse_ident(lexer)?;
         lexer.expect(Token::Colon)?;
         Some(ident)
     } else {
         None
     };
-    let is_mut = if lexer.peek_matches(Token::Ampersand) {
+    let is_mut = if lexer.peek_matches(Token::Times) {
         lexer.next();
         true
     } else {
