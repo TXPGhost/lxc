@@ -31,6 +31,9 @@ pub enum Token {
     #[token(r":")]
     Colon,
 
+    #[token(r"$")]
+    DollarSign,
+
     #[token(r"::")]
     ColonColon,
 

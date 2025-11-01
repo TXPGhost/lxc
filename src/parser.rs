@@ -168,6 +168,8 @@ impl InfixKind {
             InfixKind::Sub => Token::Minus,
             InfixKind::Mul => Token::Times,
             InfixKind::Div => Token::Divide,
+            InfixKind::Eq => Token::EqualsEquals,
+            InfixKind::Ne => Token::NotEquals,
         }
     }
 }
@@ -264,6 +266,21 @@ pub fn parse_array_or_vec(lexer: &mut Lexer<'_, 2>) -> Result<Expr, ParseError> 
 
 /// Attempts to parse an atomic expression (e.g. identifiers, numbers, strings, array literals).
 pub fn parse_atomic_expression(lexer: &mut Lexer<'_, 2>) -> Result<Expr, ParseError> {
+    if lexer.peek_matches(Token::LParen) {
+        // TODO: this currently doesn't support newline-separated tuples
+        lexer.expect(Token::LParen)?;
+        while lexer.peek_matches(Token::Newline) {
+            lexer.expect(Token::Newline)?;
+        }
+        let expr = parse_expr(lexer)?;
+        while lexer.peek_matches(Token::Newline) {
+            lexer.expect(Token::Newline)?;
+        }
+        lexer.expect(Token::RParen)?;
+        return Ok(Expr::Paren(Paren {
+            expr: Box::new(expr),
+        }));
+    }
     if lexer.peek_matches_any(&[
         Token::Underscore,
         Token::LIdent,
@@ -273,11 +290,11 @@ pub fn parse_atomic_expression(lexer: &mut Lexer<'_, 2>) -> Result<Expr, ParseEr
     ]) {
         return Ok(Expr::Ident(parse_ident(lexer)?));
     }
-    if lexer.peek_matches(Token::LParen) {
-        lexer.expect(Token::LParen)?;
-        let expr = parse_expr(lexer)?;
-        lexer.expect(Token::RParen)?;
-        return Ok(expr);
+    if lexer.peek_matches(Token::DollarSign) {
+        return parse_return(lexer);
+    }
+    if lexer.peek_matches(Token::QuestionMark) {
+        return parse_if(lexer);
     }
     if lexer.peek_matches(Token::LSquare) {
         return parse_array_or_vec(lexer);
@@ -287,6 +304,9 @@ pub fn parse_atomic_expression(lexer: &mut Lexer<'_, 2>) -> Result<Expr, ParseEr
     }
     if lexer.peek_matches(Token::String) {
         return parse_string(lexer);
+    }
+    if !lexer.has_next() {
+        return Err(ParseError::OutOfTokens);
     }
     Err(ParseError::Custom {
         message: "expected atomic expression",
@@ -418,6 +438,7 @@ pub fn parse_expr(lexer: &mut Lexer<'_, 2>) -> Result<Expr, ParseError> {
         &[
             PrattGroup::left(&[InfixKind::Add, InfixKind::Sub]),
             PrattGroup::left(&[InfixKind::Mul, InfixKind::Div]),
+            PrattGroup::left(&[InfixKind::Eq, InfixKind::Ne]),
         ],
     )
 }
@@ -498,8 +519,10 @@ pub fn parse_assn(lexer: &mut Lexer<'_, 2>) -> Result<Stmt, ParseError> {
 }
 
 /// Attempts to parse a return statement.
-pub fn parse_return(lexer: &mut Lexer<'_, 2>) -> Result<Stmt, ParseError> {
-    todo!()
+pub fn parse_return(lexer: &mut Lexer<'_, 2>) -> Result<Expr, ParseError> {
+    lexer.expect(Token::DollarSign)?;
+    let expr = Box::new(parse_expr(lexer)?);
+    Ok(Expr::Return(Return { expr }))
 }
 
 /// Attempts to parse a statement.
@@ -514,10 +537,26 @@ pub fn parse_stmt(lexer: &mut Lexer<'_, 2>) -> Result<Stmt, ParseError> {
         return parse_assn(lexer);
     }
 
-    // Returns
-    if lexer.peek_matches(Token::LeftArrow) {
-        return parse_return(lexer);
-    }
-
     Ok(Stmt::Expr(parse_expr(lexer)?))
+}
+
+/// Attempts to parse an if expression.
+pub fn parse_if(lexer: &mut Lexer<'_, 2>) -> Result<Expr, ParseError> {
+    lexer.expect(Token::QuestionMark)?;
+    lexer.expect(Token::LParen)?;
+    let cond = Box::new(parse_expr(lexer)?);
+    lexer.expect(Token::RParen)?;
+    let if_body = Box::new(parse_expr(lexer)?);
+    let else_body = if lexer.peek_matches(Token::Colon) {
+        lexer.expect(Token::Colon)?;
+        Some(Box::new(parse_expr(lexer)?))
+    } else {
+        None
+    };
+
+    Ok(Expr::If(If {
+        cond,
+        if_body,
+        else_body,
+    }))
 }

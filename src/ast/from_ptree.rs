@@ -15,6 +15,9 @@ impl From<ptree::Expr> for Expr {
             ptree::Expr::Object(o) => Expr::Object(Object::from(o)),
             ptree::Expr::Array(a) => Expr::Array(Array::from(a)),
             ptree::Expr::Vector(v) => Expr::Vector(Vector::from(v)),
+            ptree::Expr::Paren(e) => Expr::from(*e.expr),
+            ptree::Expr::Return(_) => todo!("from_ptree return expr"),
+            ptree::Expr::If(_) => todo!("from_ptree if expr"),
         }
     }
 }
@@ -66,7 +69,6 @@ impl From<ptree::Stmt> for Stmt {
                 ident,
                 expr: Expr::from(expr),
             }),
-            ptree::Stmt::Return(expr) => Stmt::Return(Expr::from(expr)),
             ptree::Stmt::Expr(expr) => Stmt::Assn(Assn {
                 ident: Ident::void(),
                 expr: Expr::from(expr),
@@ -118,6 +120,8 @@ impl From<ptree::Infix> for Call {
             ptree::InfixKind::Sub => "_sub".to_owned(),
             ptree::InfixKind::Mul => "_mul".to_owned(),
             ptree::InfixKind::Div => "_div".to_owned(),
+            ptree::InfixKind::Eq => "_eq".to_owned(),
+            ptree::InfixKind::Ne => "_ne".to_owned(),
         };
         Call {
             func: Box::new(Expr::Ident(Ident {

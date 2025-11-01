@@ -36,6 +36,15 @@ pub enum Expr {
 
     /// A vector expression, e.g. `[5]I32` or `[]I32`.
     Vector(Vector),
+
+    /// A parenthesized expression, e.g. `(expr)`.
+    Paren(Paren),
+
+    /// A return expression, e.g. `$ (42)`.
+    Return(Return),
+
+    /// An if expression, e.g. `? (cond) expr` or `? (cond) expr : expr`.
+    If(If),
 }
 
 /// An identifier, e.g. `value` or `Type` or `_builtin`.
@@ -131,6 +140,12 @@ pub enum InfixKind {
 
     /// Division (e.g. `lhs / rhs`).
     Div,
+
+    /// Equality (e.g. `lhs == rhs`).
+    Eq,
+
+    /// Inequality (e.g. `lhs != rhs`).
+    Ne,
 }
 
 /// A function, with parameters and a body.
@@ -179,9 +194,6 @@ pub enum Stmt {
 
     /// A local variable assignment, e.g. `x := 10`.
     Assn(Ident, Expr),
-
-    /// A return statement, e.g. `<- 42`.
-    Return(Expr),
 
     /// An expression statement, e.g. `obj.method()`
     Expr(Expr),
@@ -268,6 +280,19 @@ pub struct Param {
     pub ident: Ident,
 }
 
+/// An if statement, with an optional else block.
+#[derive(Debug)]
+pub struct If {
+    /// The condition which must be true.
+    pub cond: Box<Expr>,
+
+    /// The body which runs if the condition is true.
+    pub if_body: Box<Expr>,
+
+    /// The body which runs if the condition is false.
+    pub else_body: Option<Box<Expr>>,
+}
+
 impl Expr {
     /// Returns `true` if this expr/type should be passed by value (as opposed to being passed by
     /// reference). This is the case iff:
@@ -282,4 +307,18 @@ impl Expr {
         // NOT YET IMPLEMENTED (for now we pass everything by reference)
         false
     }
+}
+
+/// A return expression.
+#[derive(Debug)]
+pub struct Return {
+    /// The expression to return.
+    pub expr: Box<Expr>,
+}
+
+/// A parenthesized expression.
+#[derive(Debug)]
+pub struct Paren {
+    /// The expression within the parenthesis.
+    pub expr: Box<Expr>,
 }

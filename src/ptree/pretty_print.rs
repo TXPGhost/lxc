@@ -8,6 +8,7 @@ const fn color(r: u8, g: u8, b: u8) -> Color {
     Color::TrueColor { r, g, b }
 }
 
+// Pretty Printing Colors
 static IDT: Color = color(209, 209, 209);
 static OPR: Color = color(182, 182, 181);
 static PNC: Color = color(172, 172, 172);
@@ -17,10 +18,12 @@ static FUN: Color = color(248, 198, 153);
 static TYP: Color = color(238, 168, 107);
 static MBR: Color = color(179, 194, 209);
 
+/// Joins two strings with a comma and a space.
 fn comma_join(lhs: String, rhs: String) -> String {
     format!("{}{}{}", lhs, ", ".color(PNC), rhs)
 }
 
+/// Joins two strings with a semicolon and a space.
 fn semicolon_join(lhs: String, rhs: String) -> String {
     format!("{}{}{}", lhs, "; ".color(PNC), rhs)
 }
@@ -38,6 +41,9 @@ impl Display for Expr {
             Expr::Object(o) => write!(f, "{o}"),
             Expr::Array(a) => write!(f, "{a}"),
             Expr::Vector(v) => write!(f, "{v}"),
+            Expr::Paren(p) => write!(f, "{p}"),
+            Expr::Return(r) => write!(f, "{r}"),
+            Expr::If(i) => write!(f, "{i}"),
         }
     }
 }
@@ -177,6 +183,8 @@ impl Display for InfixKind {
             InfixKind::Sub => write!(f, "{}", "-".color(OPR)),
             InfixKind::Mul => write!(f, "{}", "*".color(OPR)),
             InfixKind::Div => write!(f, "{}", "/".color(OPR)),
+            InfixKind::Eq => write!(f, "{}", "==".color(OPR)),
+            InfixKind::Ne => write!(f, "{}", "!=".color(OPR)),
         }
     }
 }
@@ -271,7 +279,6 @@ impl Display for Stmt {
         match self {
             Stmt::Decl(ident, expr) => write!(f, "{} {} {}", ident, "=".color(PNC), expr),
             Stmt::Assn(ident, expr) => write!(f, "{} {} {}", ident, ":=".color(OPR), expr),
-            Stmt::Return(expr) => write!(f, "{} {}", "<-".color(PNC), expr),
             Stmt::Expr(expr) => write!(f, "{expr}"),
         }
     }
@@ -289,6 +296,45 @@ impl Display for Ident {
             IdentKind::Value => write!(f, "{}", self.name.color(IDT)),
             IdentKind::Type => write!(f, "{}", self.name.color(TYP).bold()),
             IdentKind::Void => write!(f, "{}", self.name.color(PNC)),
+        }
+    }
+}
+
+impl Display for Paren {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}{}{}", "(".color(PNC), self.expr, ")".color(PNC))
+    }
+}
+
+impl Display for Return {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} {}", "$".color(KWD).bold(), self.expr,)
+    }
+}
+
+impl Display for If {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self.else_body {
+            Some(else_body) => write!(
+                f,
+                "{} {}{}{} {} {} {}",
+                "?".color(KWD).bold(),
+                "(".color(PNC),
+                self.cond,
+                ")".color(PNC),
+                self.if_body,
+                ":".color(KWD).bold(),
+                else_body,
+            ),
+            None => write!(
+                f,
+                "{} {}{}{} {}",
+                "?".color(KWD).bold(),
+                "(".color(PNC),
+                self.cond,
+                ")".color(PNC),
+                self.if_body
+            ),
         }
     }
 }
