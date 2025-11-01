@@ -1,10 +1,11 @@
-use std::path::PathBuf;
+use std::{fs::read_to_string, path::PathBuf};
 
 use clap::{Parser, Subcommand};
 
 use crate::{
     lexer::Lexer,
     parser::{self, ParseError},
+    ptree::Block,
 };
 
 #[derive(Parser)]
@@ -55,9 +56,8 @@ pub fn eval(user_input: &str) -> EvalResult {
 
     // Parser step
     match parser::parse_program(&mut lexer) {
-        Ok(ptree) => {
-            println!("==> {ptree}");
-            ptree
+        Ok(stmts) => {
+            println!("==> {}", Block { stmts });
         }
         Err(ParseError::OutOfTokens) => {
             return EvalResult::Incomplete;
@@ -86,7 +86,7 @@ pub fn repl() {
             break;
         }
         let trimmed_input = user_input.trim();
-        if trimmed_input.is_empty() {
+        if trimmed_input.is_empty() || trimmed_input.ends_with(';') {
             continue;
         };
 
@@ -98,6 +98,6 @@ pub fn repl() {
 }
 
 /// Runs the file at the given path.
-pub fn run(_: PathBuf) {
-    todo!("haven't implemented run yet")
+pub fn run(file: PathBuf) {
+    eval(&read_to_string(file).expect("unable to read file"));
 }

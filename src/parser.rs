@@ -1,4 +1,4 @@
-use std::num::ParseIntError;
+use std::num::{ParseFloatError, ParseIntError};
 
 use crate::{lexer::*, ptree::*};
 
@@ -49,6 +49,9 @@ pub enum ParseError {
 
     /// Failed to parse an integer.
     ParseIntError(ParseIntError),
+
+    /// Failed to parse a float.
+    ParseFloatError(ParseFloatError),
 }
 
 impl<'source, const LOOKAHEAD: usize> Lexer<'source, LOOKAHEAD> {
@@ -64,7 +67,7 @@ impl<'source, const LOOKAHEAD: usize> Lexer<'source, LOOKAHEAD> {
         if found != expected {
             return Err(ParseError::ExpectFailed { expected, found });
         }
-        Ok(self.slice())
+        Ok(self.slice().unwrap())
     }
 
     /// Consumes the next [Token] and returns its slice, otherwise returns an error if it is
@@ -78,7 +81,7 @@ impl<'source, const LOOKAHEAD: usize> Lexer<'source, LOOKAHEAD> {
         };
         for token in expected {
             if found == *token {
-                return Ok(self.slice());
+                return Ok(self.slice().unwrap());
             }
         }
         Err(ParseError::ExpectAnyFailed {
@@ -171,10 +174,19 @@ impl InfixKind {
 
 /// Attempts to parse a numeric literal.
 pub fn parse_number(lexer: &mut Lexer<'_, 2>) -> Result<Expr, ParseError> {
-    let slice = lexer.expect(Token::Integer)?;
-    Ok(Expr::I64(
-        slice.parse::<i64>().map_err(ParseError::ParseIntError)?,
-    ))
+    if lexer.peek_matches(Token::Integer) {
+        let slice = lexer.expect(Token::Integer)?;
+        return Ok(Expr::Integer(slice.to_owned()));
+    }
+    if lexer.peek_matches(Token::Float) {
+        let slice = lexer.expect(Token::Float)?;
+        return Ok(Expr::Float(slice.to_owned()));
+    }
+
+    Err(ParseError::ExpectAnyFailed {
+        expected: vec![Token::Integer, Token::Float],
+        found: lexer.peek().ok_or(ParseError::OutOfTokens)?,
+    })
 }
 
 /// Attempts to parse a string literal.
@@ -270,7 +282,7 @@ pub fn parse_atomic_expression(lexer: &mut Lexer<'_, 2>) -> Result<Expr, ParseEr
     if lexer.peek_matches(Token::LSquare) {
         return parse_array_or_vec(lexer);
     }
-    if lexer.peek_matches(Token::Integer) {
+    if lexer.peek_matches_any(&[Token::Integer, Token::Float]) {
         return parse_number(lexer);
     }
     if lexer.peek_matches(Token::String) {
@@ -411,8 +423,8 @@ pub fn parse_expr(lexer: &mut Lexer<'_, 2>) -> Result<Expr, ParseError> {
 }
 
 /// Attempts to parse an entire program, emits an error on trailing tokens.
-pub fn parse_program(lexer: &mut Lexer<'_, 2>) -> Result<Expr, ParseError> {
-    let program = parse_expr(lexer)?;
+pub fn parse_program(lexer: &mut Lexer<'_, 2>) -> Result<Vec<Stmt>, ParseError> {
+    let program = parse_list(lexer, parse_stmt)?;
     match lexer.next() {
         Some(Ok(token)) => Err(ParseError::TrailingToken(token)),
         Some(Err(e)) => Err(ParseError::UnrecognizedToken(e)),
@@ -472,7 +484,7 @@ pub fn parse_arg(lexer: &mut Lexer<'_, 2>) -> Result<Arg, ParseError> {
 /// Attempts to parse a declaration statement.
 pub fn parse_decl(lexer: &mut Lexer<'_, 2>) -> Result<Stmt, ParseError> {
     let ident = parse_ident(lexer)?;
-    lexer.expect(Token::Equals);
+    lexer.expect(Token::Equals)?;
     let expr = parse_expr(lexer)?;
     Ok(Stmt::Decl(ident, expr))
 }
@@ -480,7 +492,7 @@ pub fn parse_decl(lexer: &mut Lexer<'_, 2>) -> Result<Stmt, ParseError> {
 /// Attempts to parse an assignment statement.
 pub fn parse_assn(lexer: &mut Lexer<'_, 2>) -> Result<Stmt, ParseError> {
     let ident = parse_ident(lexer)?;
-    lexer.expect(Token::ColonEquals);
+    lexer.expect(Token::ColonEquals)?;
     let expr = parse_expr(lexer)?;
     Ok(Stmt::Assn(ident, expr))
 }

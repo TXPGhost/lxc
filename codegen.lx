@@ -4,7 +4,7 @@ CodeGen {
 	builder: Builder
 	execution_engine: ExecutionEngine
 
-	&jit_compile_sum() -> Option<JitFunction<SumFunc>> {
+	*jit_compile_sum() -> Option<JitFunction<SumFunc>> {
 		i64t = context.i64_type()
 		fn_t = i64_t.fn_type([i64_t, i64_t, i64_t], false)
 		function = module.add_function("sum", fn_t, None)

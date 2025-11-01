@@ -165,8 +165,8 @@ impl<'source, const LOOKAHEAD: usize> Lexer<'source, LOOKAHEAD> {
     }
 
     /// Returns the source code's string slice.
-    pub fn slice(&self) -> &'source str {
-        self.slice[0].unwrap_or("<no data>")
+    pub fn slice(&self) -> Option<&'source str> {
+        self.slice.first().copied().flatten()
     }
 
     /// Peeks the next [Token] without consuming it.

@@ -10,8 +10,11 @@ pub enum Expr {
     /// A string literal, e.g. `"abcdef"`
     String(String),
 
-    /// A constant 64-bit signed integer value, e.g. `42`.
-    I64(i64),
+    /// An integer literal, e.g. `42`.
+    Integer(String),
+
+    /// A float literal, e.g. `4.2`
+    Float(String),
 
     /// A binary operator expression, e.g. `x + y`.
     Infix(Infix),

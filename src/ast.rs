@@ -19,7 +19,8 @@ pub enum Expr {
 #[derive(Debug)]
 pub enum Lit {
     String(String),
-    I64(i64),
+    Integer(String),
+    Float(String),
 }
 
 #[derive(Debug)]

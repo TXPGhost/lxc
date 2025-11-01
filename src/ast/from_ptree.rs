@@ -6,7 +6,8 @@ impl From<ptree::Expr> for Expr {
         match expr {
             ptree::Expr::Ident(i) => Expr::Ident(i),
             ptree::Expr::String(s) => Expr::Lit(Lit::String(s)),
-            ptree::Expr::I64(i) => Expr::Lit(Lit::I64(i)),
+            ptree::Expr::Integer(i) => Expr::Lit(Lit::Integer(i)),
+            ptree::Expr::Float(f) => Expr::Lit(Lit::Float(f)),
             ptree::Expr::Infix(i) => Expr::Call(Call::from(i)),
             ptree::Expr::Call(c) => Expr::Call(Call::from(c)),
             ptree::Expr::Constructor(c) => Expr::Constructor(Constructor::from(c)),

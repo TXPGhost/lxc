@@ -1,4 +1,4 @@
-use std::{fmt::Display, sync::LazyLock};
+use std::fmt::Display;
 
 use colored::{Color, Colorize};
 
@@ -18,7 +18,11 @@ static TYP: Color = color(238, 168, 107);
 static MBR: Color = color(179, 194, 209);
 
 fn comma_join(lhs: String, rhs: String) -> String {
-    format!("{}{}{}", lhs, ", ".color(OPR), rhs)
+    format!("{}{}{}", lhs, ", ".color(PNC), rhs)
+}
+
+fn semicolon_join(lhs: String, rhs: String) -> String {
+    format!("{}{}{}", lhs, "; ".color(PNC), rhs)
 }
 
 impl Display for Expr {
@@ -26,7 +30,7 @@ impl Display for Expr {
         match self {
             Expr::Ident(i) => write!(f, "{i}"),
             Expr::String(s) => write!(f, "{}", format!("\"{s}\"").color(LIT)),
-            Expr::I64(i) => write!(f, "{}", i.to_string().color(LIT)),
+            Expr::Integer(n) | Expr::Float(n) => write!(f, "{}", n.color(LIT)),
             Expr::Infix(i) => write!(f, "{i}"),
             Expr::Call(call) => write!(f, "{call}"),
             Expr::Constructor(c) => write!(f, "{c}"),
@@ -248,7 +252,28 @@ impl Display for Arg {
 impl Display for Block {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // TODO
-        write!(f, "TODO")
+        write!(
+            f,
+            "{}{}{}",
+            "{".color(OPR),
+            self.stmts
+                .iter()
+                .map(Stmt::to_string)
+                .reduce(semicolon_join)
+                .unwrap_or_default(),
+            "}".color(OPR)
+        )
+    }
+}
+
+impl Display for Stmt {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Stmt::Decl(ident, expr) => write!(f, "{} {} {}", ident, "=".color(PNC), expr),
+            Stmt::Assn(ident, expr) => write!(f, "{} {} {}", ident, ":=".color(OPR), expr),
+            Stmt::Return(expr) => write!(f, "{} {}", "<-".color(PNC), expr),
+            Stmt::Expr(expr) => write!(f, "{expr}"),
+        }
     }
 }
 
