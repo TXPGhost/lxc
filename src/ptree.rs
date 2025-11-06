@@ -22,6 +22,9 @@ pub enum Expr {
     /// A function call expression, e.g. `fn(arg0, arg1, arg2)`.
     Call(Call),
 
+    /// A function expression, e.g. `(x: I32, y: I32) -> x + y`.
+    Func(Func),
+
     /// An object constructor, e.g. `Vector3{1.0, 2.0, 3.0}`.
     Constructor(Constructor),
 
@@ -214,7 +217,7 @@ pub struct Object {
     pub methods: Vec<Method>,
 }
 
-/// An object constructor, coexpr: parse_expr(lexer)? nsisting of an object type and an initializer list.
+/// An object constructor, consisting of an object type and an initializer list.
 #[derive(Debug)]
 pub struct Constructor {
     /// The the object type being constructed, e.g. `Vector3`.
@@ -278,6 +281,9 @@ pub struct Param {
 
     /// The parameter name identifier. Must be unique within the parameter list.
     pub ident: Ident,
+
+    /// The paremter's type.
+    pub ty: Expr,
 }
 
 /// An if statement, with an optional else block.

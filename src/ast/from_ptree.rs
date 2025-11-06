@@ -10,6 +10,7 @@ impl From<ptree::Expr> for Expr {
             ptree::Expr::Float(f) => Expr::Lit(Lit::Float(f)),
             ptree::Expr::Infix(i) => Expr::Call(Call::from(i)),
             ptree::Expr::Call(c) => Expr::Call(Call::from(c)),
+            ptree::Expr::Func(_) => todo!("from_ptree func expr"),
             ptree::Expr::Constructor(c) => Expr::Constructor(Constructor::from(c)),
             ptree::Expr::Proj(p) => Expr::Proj(Proj::from(p)),
             ptree::Expr::Object(o) => Expr::Object(Object::from(o)),

@@ -35,7 +35,8 @@ impl Display for Expr {
             Expr::String(s) => write!(f, "{}", format!("\"{s}\"").color(LIT)),
             Expr::Integer(n) | Expr::Float(n) => write!(f, "{}", n.color(LIT)),
             Expr::Infix(i) => write!(f, "{i}"),
-            Expr::Call(call) => write!(f, "{call}"),
+            Expr::Call(c) => write!(f, "{c}"),
+            Expr::Func(u) => write!(f, "{u}"),
             Expr::Constructor(c) => write!(f, "{c}"),
             Expr::Proj(p) => write!(f, "{p}"),
             Expr::Object(o) => write!(f, "{o}"),
@@ -114,7 +115,19 @@ impl Display for Func {
 
 impl Display for Field {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}{}: {}", self.visibility, self.ident, self.ty)
+        write!(
+            f,
+            "{}{}{}{}",
+            self.visibility,
+            self.ident,
+            match self.ty {
+                Expr::Func(_) => "",
+                Expr::Object(_) => " ",
+                _ => ": ",
+            }
+            .color(PNC),
+            self.ty
+        )
     }
 }
 

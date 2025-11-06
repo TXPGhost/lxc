@@ -1,11 +1,11 @@
-use std::{fs::read_to_string, path::PathBuf};
+use std::{fs::read_to_string, io::Write, path::PathBuf};
 
 use clap::{Parser, Subcommand};
 
 use crate::{
     lexer::Lexer,
     parser::{self, ParseError},
-    ptree::Block,
+    ptree::Object,
 };
 
 #[derive(Parser)]
@@ -56,8 +56,15 @@ pub fn eval(user_input: &str) -> EvalResult {
 
     // Parser step
     match parser::parse_program(&mut lexer) {
-        Ok(stmts) => {
-            println!("==> {}", Block { stmts });
+        Ok(fields) => {
+            println!(
+                "==> {}",
+                Object {
+                    functions: Vec::new(),
+                    fields,
+                    methods: Vec::new()
+                }
+            );
         }
         Err(ParseError::OutOfTokens) => {
             return EvalResult::Incomplete;
@@ -77,6 +84,7 @@ pub fn eval(user_input: &str) -> EvalResult {
 pub fn repl() {
     let mut user_input = String::new();
     let stdin = std::io::stdin();
+    let mut stdout = std::io::stdout();
     loop {
         // Gather user input
         let nbyte = stdin
@@ -90,9 +98,12 @@ pub fn repl() {
             continue;
         };
 
-        match eval(trimmed_input) {
+        match eval(&user_input) {
             EvalResult::Success | EvalResult::Failure => user_input.clear(),
-            EvalResult::Incomplete => {}
+            EvalResult::Incomplete => {
+                print!("  ");
+                stdout.flush().unwrap();
+            }
         }
     }
 }

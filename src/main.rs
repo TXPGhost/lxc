@@ -8,14 +8,14 @@ pub mod lexer;
 /// A hand-written pratt parser.
 pub mod parser;
 
-/// LLVM code generation.
-pub mod code_gen;
-
 /// The parse tree emitted from the parser.
 pub mod ptree;
 
 /// The abstract syntax tree, a simplified form of the parse tree.
 pub mod ast;
+
+/// Native code generation.
+// pub mod code_gen;
 
 /// The command-line interface.
 pub mod cli;
