@@ -290,8 +290,11 @@ pub fn parse_atomic_expression(lexer: &mut Lexer<'_, 2>) -> Result<Expr, ParseEr
     ]) {
         return Ok(Expr::Ident(parse_ident(lexer)?));
     }
-    if lexer.peek_matches(Token::LCurl) {
+    if lexer.peek_matches(Token::LParen) {
         return Ok(Expr::Object(parse_object(lexer)?));
+    }
+    if lexer.peek_matches(Token::LCurl) {
+        return Ok(Expr::Block(parse_block(lexer)?));
     }
     if lexer.peek_matches(Token::DollarSign) {
         return parse_return(lexer);
@@ -334,16 +337,16 @@ pub fn parse_suffix_expr(lexer: &mut Lexer<'_, 2>) -> Result<Expr, ParseError> {
         }
 
         // Constructors
-        if lexer.peek_matches(Token::LCurl) {
-            lexer.expect(Token::LCurl)?;
-            let args = parse_list(lexer, parse_expr)?;
-            lexer.expect(Token::RCurl)?;
-            expr = Expr::Constructor(Constructor {
-                ty: Box::new(expr),
-                args,
-            });
-            continue;
-        }
+        // if lexer.peek_matches(Token::LCurl) {
+        //     lexer.expect(Token::LCurl)?;
+        //     let args = parse_list(lexer, parse_expr)?;
+        //     lexer.expect(Token::RCurl)?;
+        //     expr = Expr::Constructor(Constructor {
+        //         ty: Box::new(expr),
+        //         args,
+        //     });
+        //     continue;
+        // }
 
         // Function calls
         if lexer.peek_matches(Token::LParen) {
@@ -569,9 +572,9 @@ pub fn parse_if(lexer: &mut Lexer<'_, 2>) -> Result<Expr, ParseError> {
 
 /// Attempts to parse an object.
 pub fn parse_object(lexer: &mut Lexer<'_, 2>) -> Result<Object, ParseError> {
-    lexer.expect(Token::LCurl)?;
+    lexer.expect(Token::LParen)?;
     let raw_fields = parse_list(lexer, parse_field)?;
-    lexer.expect(Token::RCurl)?;
+    lexer.expect(Token::RParen)?;
     let mut functions = Vec::new();
     let mut fields = Vec::new();
     let mut methods = Vec::new();
@@ -604,41 +607,52 @@ pub fn parse_field(lexer: &mut Lexer<'_, 2>) -> Result<Field, ParseError> {
 
     // Functions
     if lexer.peek_matches(Token::LParen) {
-        let func = parse_func(lexer)?;
-        return Ok(Field {
-            visibility: Visibility::Default,
-            ident,
-            ty: Expr::Func(func), // stuff the function expression into the type
-        });
+        let obj = parse_object(lexer)?;
+        if lexer.peek_matches(Token::LCurl) {
+            let body = parse_block(lexer)?;
+            return Ok(Field {
+                visibility: Visibility::Default,
+                ident,
+                ty: Expr::Func(Func {
+                    params: obj,
+                    ty: None,
+                    body: Some(body),
+                }),
+            });
+        } else if lexer.peek_matches(Token::RightArrow) {
+            lexer.expect(Token::RightArrow)?;
+            let ty = parse_expr(lexer)?;
+            let body = if lexer.peek_matches(Token::LCurl) {
+                Some(parse_block(lexer)?)
+            } else {
+                None
+            };
+            return Ok(Field {
+                visibility: Visibility::Default,
+                ident,
+                ty: Expr::Func(Func {
+                    params: obj,
+                    ty: Some(Box::new(ty)),
+                    body,
+                }),
+            });
+        } else {
+            return Ok(Field {
+                visibility: Visibility::Default,
+                ident,
+                ty: Expr::Object(obj),
+            });
+        }
+    } else {
+        lexer.expect_any(&[Token::LParen, Token::Colon])?;
     }
 
-    if !lexer.peek_matches(Token::LCurl) {
-        lexer.expect(Token::Colon)?;
-    }
     let ty = parse_expr(lexer)?;
-
     Ok(Field {
         visibility: Visibility::Default,
         ident,
         ty,
     })
-}
-
-/// Attempts to parse a function.
-pub fn parse_func(lexer: &mut Lexer<'_, 2>) -> Result<Func, ParseError> {
-    lexer.expect(Token::LParen)?;
-    let params = parse_list(lexer, parse_param)?;
-    lexer.expect(Token::RParen)?;
-    let body = if lexer.peek_matches(Token::LCurl) {
-        parse_block(lexer)?
-    } else {
-        lexer.expect_any(&[Token::RightArrow, Token::LCurl])?;
-        let body = parse_expr(lexer)?;
-        Block {
-            stmts: vec![Stmt::Expr(body)],
-        }
-    };
-    Ok(Func { params, body })
 }
 
 /// Attempts to parse a function parameter.

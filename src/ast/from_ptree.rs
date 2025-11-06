@@ -11,7 +11,7 @@ impl From<ptree::Expr> for Expr {
             ptree::Expr::Infix(i) => Expr::Call(Call::from(i)),
             ptree::Expr::Call(c) => Expr::Call(Call::from(c)),
             ptree::Expr::Func(_) => todo!("from_ptree func expr"),
-            ptree::Expr::Constructor(c) => Expr::Constructor(Constructor::from(c)),
+            ptree::Expr::Block(_) => todo!("from_ptree block expr"),
             ptree::Expr::Proj(p) => Expr::Proj(Proj::from(p)),
             ptree::Expr::Object(o) => Expr::Object(Object::from(o)),
             ptree::Expr::Array(a) => Expr::Array(Array::from(a)),
@@ -89,8 +89,9 @@ impl From<ptree::Block> for Block {
 impl From<ptree::Func> for Func {
     fn from(func: ptree::Func) -> Func {
         Func {
-            params: func.params,
-            body: Block::from(func.body),
+            params: Object::from(func.params),
+            ty: func.ty.map(|ty| Box::new(Expr::from(*ty))),
+            body: func.body.map(Block::from),
         }
     }
 }

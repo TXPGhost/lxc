@@ -19,14 +19,14 @@ pub enum Expr {
     /// A binary operator expression, e.g. `x + y`.
     Infix(Infix),
 
-    /// A function call expression, e.g. `fn(arg0, arg1, arg2)`.
+    /// A function (or constructor) call expression, e.g. `fn(arg0, arg1, arg2)`.
     Call(Call),
 
     /// A function expression, e.g. `(x: I32, y: I32) -> x + y`.
     Func(Func),
 
-    /// An object constructor, e.g. `Vector3{1.0, 2.0, 3.0}`.
-    Constructor(Constructor),
+    /// A block expression, e.g. `{x = 10; y = 20; x + y}`
+    Block(Block),
 
     /// A field projection expression, e.g. `object.field`.
     Proj(Proj),
@@ -154,11 +154,14 @@ pub enum InfixKind {
 /// A function, with parameters and a body.
 #[derive(Debug)]
 pub struct Func {
-    /// The function's parameter list.
-    pub params: Vec<Param>,
+    /// The function's parameter object.
+    pub params: Object,
 
-    /// The function body's basic block.
-    pub body: Block,
+    /// The function return type.
+    pub ty: Option<Box<Expr>>,
+
+    /// The function body's code block.
+    pub body: Option<Block>,
 }
 
 /// A function call, with a function expression and a list of arguments.

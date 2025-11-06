@@ -37,7 +37,7 @@ impl Display for Expr {
             Expr::Infix(i) => write!(f, "{i}"),
             Expr::Call(c) => write!(f, "{c}"),
             Expr::Func(u) => write!(f, "{u}"),
-            Expr::Constructor(c) => write!(f, "{c}"),
+            Expr::Block(b) => write!(f, "{b}"),
             Expr::Proj(p) => write!(f, "{p}"),
             Expr::Object(o) => write!(f, "{o}"),
             Expr::Array(a) => write!(f, "{a}"),
@@ -86,30 +86,26 @@ impl Display for Object {
         write!(
             f,
             "{}{}{}",
-            "{".color(OPR),
+            "(".color(OPR),
             std::iter::empty()
                 .chain(self.functions.iter().map(Func::to_string))
                 .chain(self.fields.iter().map(Field::to_string))
                 .chain(self.methods.iter().map(Method::to_string))
                 .reduce(comma_join)
                 .unwrap_or_default(),
-            "}".color(OPR),
+            ")".color(OPR),
         )
     }
 }
 
 impl Display for Func {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "({}) -> {}",
-            self.params
-                .iter()
-                .map(Param::to_string)
-                .reduce(comma_join)
-                .unwrap_or_default(),
-            self.body
-        )
+        match (&self.ty, &self.body) {
+            (Some(ty), None) => write!(f, "{} -> {}", self.params, ty),
+            (None, Some(body)) => write!(f, "{} {}", self.params, body),
+            (Some(ty), Some(body)) => write!(f, "{} -> {} {}", self.params, ty, body),
+            (None, None) => unreachable!(),
+        }
     }
 }
 
@@ -208,13 +204,13 @@ impl Display for Constructor {
             f,
             "{}{}{}{}",
             self.ty,
-            "{".color(OPR),
+            "(".color(OPR),
             self.args
                 .iter()
                 .map(Expr::to_string)
                 .reduce(comma_join)
                 .unwrap_or_default(),
-            "}".color(OPR),
+            ")".color(OPR),
         )
     }
 }

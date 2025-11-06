@@ -9,7 +9,7 @@ pub enum Expr {
     Ident(Ident),
     Lit(Lit),
     Call(Call),
-    Constructor(Constructor),
+    Func(Func),
     Proj(Proj),
     Object(Object),
     Array(Array),
@@ -42,8 +42,9 @@ pub struct Proj {
 
 #[derive(Debug)]
 pub struct Func {
-    pub params: Vec<Param>,
-    pub body: Block,
+    pub params: Object,
+    pub ty: Option<Box<Expr>>,
+    pub body: Option<Block>,
 }
 
 #[derive(Debug)]
