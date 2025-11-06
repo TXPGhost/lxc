@@ -115,7 +115,10 @@ impl Display for Field {
             f,
             "{}{}{}{}",
             self.visibility,
-            self.ident,
+            match (&self.ident.kind, &self.ty) {
+                (IdentKind::Value, Expr::Func(_)) => format!("{}", self.ident.name.color(FUN)),
+                _ => format!("{}", self.ident),
+            },
             match self.ty {
                 Expr::Func(_) => "",
                 Expr::Object(_) => " ",

@@ -1,0 +1,11 @@
+max(x: I32, y: I32) {
+	_max(x, y)
+}
+
+main() {
+	x = 10
+	y = 20
+
+	m = max(x, y)
+	print(m)
+}
