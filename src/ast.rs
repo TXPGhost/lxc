@@ -2,7 +2,7 @@
 
 pub mod from_ptree;
 
-pub use crate::ptree::{Ident, IdentKind, Param, Visibility};
+pub use crate::ptree::{Decorator, Ident, IdentKind, Param};
 
 #[derive(Debug)]
 pub enum Expr {
@@ -85,9 +85,7 @@ pub struct Assn {
 
 #[derive(Debug)]
 pub struct Object {
-    pub functions: Vec<Func>,
     pub fields: Vec<Field>,
-    pub methods: Vec<Method>,
 }
 
 #[derive(Debug)]
@@ -98,7 +96,7 @@ pub struct Constructor {
 
 #[derive(Debug)]
 pub struct Field {
-    pub visibility: Visibility,
+    pub visibility: Decorator,
     pub ident: Ident,
     pub ty: Expr,
 }

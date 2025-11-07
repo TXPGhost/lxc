@@ -52,7 +52,7 @@ impl From<ptree::Method> for Method {
 impl From<ptree::Field> for Field {
     fn from(field: ptree::Field) -> Field {
         Field {
-            visibility: field.visibility,
+            visibility: field.decorator,
             ident: field.ident,
             ty: Expr::from(field.ty),
         }
@@ -99,9 +99,7 @@ impl From<ptree::Func> for Func {
 impl From<ptree::Object> for Object {
     fn from(object: ptree::Object) -> Object {
         Object {
-            functions: object.functions.into_iter().map(Func::from).collect(),
             fields: object.fields.into_iter().map(Field::from).collect(),
-            methods: object.methods.into_iter().map(Method::from).collect(),
         }
     }
 }

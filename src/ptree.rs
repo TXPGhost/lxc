@@ -208,16 +208,8 @@ pub enum Stmt {
 /// An object/struct with a list of named fields and associated methods.
 #[derive(Debug)]
 pub struct Object {
-    /// A list of associated functions for this object. Often used for constructors, and don't take
-    /// an implicit self receiver.
-    pub functions: Vec<Func>,
-
     /// A list of fields for the object.
     pub fields: Vec<Field>,
-
-    /// A list of associated methods for this object, which are functions that take a self
-    /// receiver.
-    pub methods: Vec<Method>,
 }
 
 /// An object constructor, consisting of an object type and an initializer list.
@@ -230,33 +222,30 @@ pub struct Constructor {
     pub args: Vec<Expr>,
 }
 
-/// A visibility modifier that can be applied to object fields.
+/// A decorator that can be applied to object fields and function arguments.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum Visibility {
-    /// The default visibility modifier, which grants readonly access to the outside world while
-    /// granting read/write access to the object internally.
+pub enum Decorator {
+    /// The default decorator, which corresponds to an immutable value.
     Default,
 
-    /// The public visibility modifier, which grants read/write access to everyone, annoted with
-    /// the `&` decorator (indicates that the field can be _mutated_ externally).
-    Public,
-
-    /// The private visibility modifier, which grants read/write access internally and hides the
-    /// field from the outside world.
-    Private,
+    /// The mutable decorator.
+    Mutable,
 }
 
 /// An object field.
 #[derive(Debug)]
 pub struct Field {
     /// The field's visibility modifier.
-    pub visibility: Visibility,
+    pub decorator: Decorator,
 
     /// The field's name, must be unique within the struct.
     pub ident: Ident,
 
     /// The field's type.
     pub ty: Expr,
+
+    /// The field's optional default value.
+    pub default_value: Option<Expr>,
 }
 
 /// An argument to a function.

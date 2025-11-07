@@ -87,10 +87,9 @@ impl Display for Object {
             f,
             "{}{}{}",
             "(".color(OPR),
-            std::iter::empty()
-                .chain(self.functions.iter().map(Func::to_string))
-                .chain(self.fields.iter().map(Field::to_string))
-                .chain(self.methods.iter().map(Method::to_string))
+            self.fields
+                .iter()
+                .map(Field::to_string)
                 .reduce(comma_join)
                 .unwrap_or_default(),
             ")".color(OPR),
@@ -114,7 +113,7 @@ impl Display for Field {
         write!(
             f,
             "{}{}{}{}",
-            self.visibility,
+            self.decorator,
             match (&self.ident.kind, &self.ty) {
                 (IdentKind::Value, Expr::Func(_)) => format!("{}", self.ident.name.color(FUN)),
                 _ => format!("{}", self.ident),
@@ -126,16 +125,19 @@ impl Display for Field {
             }
             .color(PNC),
             self.ty
-        )
+        )?;
+        if let Some(default_value) = &self.default_value {
+            write!(f, " {} {}", "=".color(PNC), default_value)?;
+        }
+        Ok(())
     }
 }
 
-impl Display for Visibility {
+impl Display for Decorator {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Visibility::Default => write!(f, ""),
-            Visibility::Public => write!(f, "&"),
-            Visibility::Private => write!(f, "-"),
+            Decorator::Default => write!(f, ""),
+            Decorator::Mutable => write!(f, "{}", "*".color(PNC)),
         }
     }
 }

@@ -57,14 +57,7 @@ pub fn eval(user_input: &str) -> EvalResult {
     // Parser step
     match parser::parse_program(&mut lexer) {
         Ok(fields) => {
-            println!(
-                "==> {}",
-                Object {
-                    functions: Vec::new(),
-                    fields,
-                    methods: Vec::new()
-                }
-            );
+            println!("==> {}", Object { fields });
         }
         Err(ParseError::OutOfTokens) => {
             return EvalResult::Incomplete;

@@ -9,3 +9,22 @@ main() {
 	m = max(x, y)
 	print(m)
 }
+
+main(io: IO) {
+	vec_a = Vector3(1, 2, 3)
+	vec_b = Vector3(4, 5, 6)
+	vec_c = Vector3.add(vec_a, vec_b)
+
+	io.println(vec_c.to_string())
+
+	Vector3.normalize(*vec_a)
+	vec_b.normalize(*vec_b)
+	vec_c.normalize()
+
+	x = Cow.Owned("Hello, world!")
+
+	y = +x
+	z = +x
+
+	z ++= "test"
+}

@@ -573,51 +573,46 @@ pub fn parse_if(lexer: &mut Lexer<'_, 2>) -> Result<Expr, ParseError> {
 /// Attempts to parse an object.
 pub fn parse_object(lexer: &mut Lexer<'_, 2>) -> Result<Object, ParseError> {
     lexer.expect(Token::LParen)?;
-    let raw_fields = parse_list(lexer, parse_field)?;
+    let fields = parse_list(lexer, parse_field)?;
     lexer.expect(Token::RParen)?;
-    let mut functions = Vec::new();
-    let mut fields = Vec::new();
-    let mut methods = Vec::new();
-    let mut is_method = false;
-    for field in raw_fields {
-        if let Expr::Func(func) = field.ty {
-            if is_method {
-                methods.push(Method {
-                    is_mut: false,
-                    func,
-                });
-            } else {
-                functions.push(func);
-            }
-        } else {
-            fields.push(field);
-            is_method = true;
-        }
-    }
-    Ok(Object {
-        functions,
-        fields,
-        methods,
-    })
+    Ok(Object { fields })
 }
 
 /// Attempts to parse a field.
 pub fn parse_field(lexer: &mut Lexer<'_, 2>) -> Result<Field, ParseError> {
+    let decorator = if lexer.peek_matches(Token::Times) {
+        lexer.expect(Token::Times)?;
+        Decorator::Mutable
+    } else {
+        Decorator::Default
+    };
     let ident = parse_ident(lexer)?;
 
-    // Functions
+    // Object/function syntax sugar
     if lexer.peek_matches(Token::LParen) {
         let obj = parse_object(lexer)?;
+
+        // Object
+        if !lexer.peek_matches_any(&[Token::LCurl, Token::RightArrow]) {
+            return Ok(Field {
+                decorator,
+                ident,
+                ty: Expr::Object(obj),
+                default_value: None,
+            });
+        }
+
         if lexer.peek_matches(Token::LCurl) {
             let body = parse_block(lexer)?;
             return Ok(Field {
-                visibility: Visibility::Default,
+                decorator,
                 ident,
                 ty: Expr::Func(Func {
                     params: obj,
                     ty: None,
                     body: Some(body),
                 }),
+                default_value: None,
             });
         } else if lexer.peek_matches(Token::RightArrow) {
             lexer.expect(Token::RightArrow)?;
@@ -628,30 +623,40 @@ pub fn parse_field(lexer: &mut Lexer<'_, 2>) -> Result<Field, ParseError> {
                 None
             };
             return Ok(Field {
-                visibility: Visibility::Default,
+                decorator,
                 ident,
                 ty: Expr::Func(Func {
                     params: obj,
                     ty: Some(Box::new(ty)),
                     body,
                 }),
+                default_value: None,
             });
         } else {
             return Ok(Field {
-                visibility: Visibility::Default,
+                decorator,
                 ident,
                 ty: Expr::Object(obj),
+                default_value: None,
             });
         }
     } else {
         lexer.expect_any(&[Token::LParen, Token::Colon])?;
     }
 
+    // Normal field
     let ty = parse_expr(lexer)?;
+    let default_value = if lexer.peek_matches(Token::Equals) {
+        lexer.expect(Token::Equals)?;
+        Some(parse_expr(lexer)?)
+    } else {
+        None
+    };
     Ok(Field {
-        visibility: Visibility::Default,
+        decorator,
         ident,
         ty,
+        default_value,
     })
 }
 
