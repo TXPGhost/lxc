@@ -10,6 +10,7 @@ pub enum Expr {
     Lit(Lit),
     Call(Call),
     Func(Func),
+    Block(Block),
     Proj(Proj),
     Object(Object),
     Array(Array),
