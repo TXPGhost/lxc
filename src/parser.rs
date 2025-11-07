@@ -450,7 +450,7 @@ pub fn parse_expr(lexer: &mut Lexer<'_, 2>) -> Result<Expr, ParseError> {
 }
 
 /// Attempts to parse an entire program, emits an error on trailing tokens.
-pub fn parse_program(lexer: &mut Lexer<'_, 2>) -> Result<Vec<Field>, ParseError> {
+pub fn parse_program(lexer: &mut Lexer<'_, 2>) -> Result<Object, ParseError> {
     let program = parse_list(lexer, parse_field)?;
     if lexer.peek_matches(Token::Newline) {
         lexer.expect(Token::Newline)?;
@@ -458,7 +458,7 @@ pub fn parse_program(lexer: &mut Lexer<'_, 2>) -> Result<Vec<Field>, ParseError>
     match lexer.next() {
         Some(Ok(token)) => Err(ParseError::TrailingToken(token)),
         Some(Err(e)) => Err(ParseError::UnrecognizedToken(e)),
-        None => Ok(program),
+        None => Ok(Object { fields: program }),
     }
 }
 

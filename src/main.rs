@@ -15,7 +15,7 @@ pub mod ptree;
 pub mod ast;
 
 /// Native code generation.
-// pub mod code_gen;
+pub mod code_gen;
 
 /// The command-line interface.
 pub mod cli;

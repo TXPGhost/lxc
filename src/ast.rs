@@ -97,7 +97,7 @@ pub struct Constructor {
 
 #[derive(Debug)]
 pub struct Field {
-    pub visibility: Decorator,
+    pub decorator: Decorator,
     pub ident: Ident,
     pub ty: Expr,
 }

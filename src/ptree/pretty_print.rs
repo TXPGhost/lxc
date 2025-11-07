@@ -100,9 +100,11 @@ impl Display for Object {
 impl Display for Func {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match (&self.ty, &self.body) {
-            (Some(ty), None) => write!(f, "{} -> {}", self.params, ty),
+            (Some(ty), None) => write!(f, "{} {} {}", self.params, "->".color(PNC), ty),
             (None, Some(body)) => write!(f, "{} {}", self.params, body),
-            (Some(ty), Some(body)) => write!(f, "{} -> {} {}", self.params, ty, body),
+            (Some(ty), Some(body)) => {
+                write!(f, "{} {} {} {}", self.params, "->".color(PNC), ty, body)
+            }
             (None, None) => unreachable!(),
         }
     }
@@ -322,7 +324,7 @@ impl Display for Paren {
 
 impl Display for Return {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} {}", "$".color(KWD).bold(), self.expr,)
+        write!(f, "{} {}", "$".color(KWD).bold(), self.expr)
     }
 }
 

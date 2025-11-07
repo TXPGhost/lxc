@@ -3,9 +3,9 @@ use std::{fs::read_to_string, io::Write, path::PathBuf};
 use clap::{Parser, Subcommand};
 
 use crate::{
+    ast,
     lexer::Lexer,
     parser::{self, ParseError},
-    ptree::Object,
 };
 
 #[derive(Parser)]
@@ -55,9 +55,10 @@ pub fn eval(user_input: &str) -> EvalResult {
     };
 
     // Parser step
-    match parser::parse_program(&mut lexer) {
-        Ok(fields) => {
-            println!("==> {}", Object { fields });
+    let program = match parser::parse_program(&mut lexer) {
+        Ok(object) => {
+            println!("==> {object}");
+            object
         }
         Err(ParseError::OutOfTokens) => {
             return EvalResult::Incomplete;
@@ -69,6 +70,8 @@ pub fn eval(user_input: &str) -> EvalResult {
     };
 
     // AST lowering
+    let ast = ast::Object::from(program);
+    dbg!(&ast);
 
     EvalResult::Success
 }

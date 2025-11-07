@@ -52,7 +52,7 @@ impl From<ptree::Method> for Method {
 impl From<ptree::Field> for Field {
     fn from(field: ptree::Field) -> Field {
         Field {
-            visibility: field.decorator,
+            decorator: field.decorator,
             ident: field.ident,
             ty: Expr::from(field.ty),
         }
