@@ -1,32 +1,9 @@
 use std::fmt::Display;
 
-use colored::{Color, Colorize};
+use colored::Colorize;
 
 use super::*;
-
-const fn color(r: u8, g: u8, b: u8) -> Color {
-    Color::TrueColor { r, g, b }
-}
-
-// Pretty Printing Colors
-static IDT: Color = color(209, 209, 209);
-static OPR: Color = color(182, 182, 181);
-static PNC: Color = color(172, 172, 172);
-static LIT: Color = color(134, 175, 154);
-static KWD: Color = color(149, 179, 209);
-static FUN: Color = color(248, 198, 153);
-static TYP: Color = color(238, 168, 107);
-static MBR: Color = color(179, 194, 209);
-
-/// Joins two strings with a comma and a space.
-fn comma_join(lhs: String, rhs: String) -> String {
-    format!("{}{}{}", lhs, ", ".color(PNC), rhs)
-}
-
-/// Joins two strings with a semicolon and a space.
-fn semicolon_join(lhs: String, rhs: String) -> String {
-    format!("{}{}{}", lhs, "; ".color(PNC), rhs)
-}
+use crate::style::*;
 
 impl Display for Expr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

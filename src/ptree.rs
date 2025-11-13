@@ -51,7 +51,7 @@ pub enum Expr {
 }
 
 /// An identifier, e.g. `value` or `Type` or `_builtin`.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Ident {
     /// The identifier name.
     pub name: String,
@@ -71,7 +71,7 @@ impl Ident {
 }
 
 /// An identifier kind, based on capitalization of the first letter and/or a leading underscore.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum IdentKind {
     /// A userland value identifier.
     Value,

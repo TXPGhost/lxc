@@ -7,3 +7,4 @@ edition = "2024"
 clap = { version = "4.5.50", features = ["derive"] }
 logos = "0.15.1"
 colored = "3.0.0"
+indexmap = "2.12.0"

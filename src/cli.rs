@@ -6,6 +6,7 @@ use crate::{
     ast,
     lexer::Lexer,
     parser::{self, ParseError},
+    ssa::lowering::Lower,
 };
 
 #[derive(Parser)]
@@ -71,7 +72,11 @@ pub fn eval(user_input: &str) -> EvalResult {
 
     // AST lowering
     let ast = ast::Object::from(program);
-    dbg!(&ast);
+
+    // SSA lowering
+    let ssa = ast.lower_prog().unwrap();
+    println!("\nENTRY {}", ssa.1);
+    println!("{}", ssa.0);
 
     EvalResult::Success
 }
