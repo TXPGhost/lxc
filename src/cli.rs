@@ -52,7 +52,7 @@ pub fn eval(user_input: &str, ctxt: &mut Ctxt) -> EvalResult {
     let mut lexer = match Lexer::new(user_input) {
         Ok(lexer) => lexer,
         Err(e) => {
-            println!("{} lexer error: {e:?}", "==>".color(KWD));
+            println!("{} lexer error: {e:?}", "ERR".color(KWD));
             return EvalResult::Failure;
         }
     };
@@ -60,14 +60,15 @@ pub fn eval(user_input: &str, ctxt: &mut Ctxt) -> EvalResult {
     // Parser step
     let program = match parser::parse_program(&mut lexer) {
         Ok(object) => {
-            println!("{} {object}", "==>".color(KWD));
+            println!("\n{}", "-- Abstract Syntax Tree".color(PNC));
+            println!("{} {object}", "AST".color(KWD));
             object
         }
         Err(ParseError::OutOfTokens) => {
             return EvalResult::Incomplete;
         }
         Err(e) => {
-            println!("{} parse error: {e:?}", "==>".color(KWD));
+            println!("{} parse error: {e:?}", "ERR".color(KWD));
             return EvalResult::Failure;
         }
     };
@@ -77,7 +78,8 @@ pub fn eval(user_input: &str, ctxt: &mut Ctxt) -> EvalResult {
 
     // SSA lowering
     let ssa = ast.lower(ctxt).unwrap();
-    println!("\n{} {}", "ENTRY".color(KWD), ssa);
+    println!("\n{}", "-- Single Static Assignment".color(PNC));
+    println!("{} {}\n", "ENTRY".color(KWD), ssa);
     println!("{}", ctxt.prog());
 
     EvalResult::Success
