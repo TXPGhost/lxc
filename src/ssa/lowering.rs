@@ -1,7 +1,7 @@
 use indexmap::IndexMap;
 
 use super::*;
-use crate::ast;
+use crate::ast::{self, IdentKind};
 
 /// Context for the lowering process.
 #[derive(Debug)]
@@ -20,10 +20,30 @@ pub struct Ctxt {
 }
 
 impl Ctxt {
+    /// Constructs a new context.
+    pub fn new() -> Self {
+        Self {
+            prog: Prog {
+                globals: IndexMap::new(),
+            },
+            ident_prefix: String::new(),
+            func: None,
+            ident_idx: 0,
+        }
+    }
+
+    /// Returns the currently built program.
+    pub fn prog(&self) -> &Prog {
+        &self.prog
+    }
+
     /// Joins an identifier with the current prefix to generate a unique identifier.
     fn make_unique(&self, ident: Ident) -> Ident {
+        if matches!(ident.kind, IdentKind::BuiltinValue | IdentKind::BuiltinType) {
+            return ident;
+        }
         Ident {
-            name: format!("{}${}", self.ident_prefix, ident.name),
+            name: format!("{}.{}", self.ident_prefix, ident.name),
             kind: ident.kind,
         }
     }
@@ -53,7 +73,7 @@ impl Ctxt {
 
     /// Pops an identifier prefix from the current context, returning [true] if one was popped.
     fn pop_prefix(&mut self) -> bool {
-        match self.ident_prefix.match_indices('$').next_back() {
+        match self.ident_prefix.match_indices('.').next_back() {
             Some(index) => {
                 self.ident_prefix = self.ident_prefix[..index.0].to_owned();
                 true
@@ -120,6 +140,12 @@ impl Ctxt {
     }
 }
 
+impl Default for Ctxt {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// An error that can occur during the AST to SSA lowering process.
 #[derive(Debug)]
 pub enum LoweringError {
@@ -137,23 +163,6 @@ pub trait Lower {
 
     /// Attempts to lower `self` into its SSA form.
     fn lower(self, ctxt: &mut Ctxt) -> Result<Self::Ssa, LoweringError>;
-
-    /// Attempts to lower `self` into an SSA program.
-    fn lower_prog(self) -> Result<(Prog, Self::Ssa), LoweringError>
-    where
-        Self: Sized,
-    {
-        let mut ctxt = Ctxt {
-            prog: Prog {
-                globals: IndexMap::new(),
-            },
-            ident_prefix: String::new(),
-            func: None,
-            ident_idx: 0,
-        };
-        let ident = self.lower(&mut ctxt)?;
-        Ok((ctxt.prog, ident))
-    }
 }
 
 impl Lower for ast::Expr {
@@ -161,7 +170,7 @@ impl Lower for ast::Expr {
 
     fn lower(self, ctxt: &mut Ctxt) -> Result<Self::Ssa, LoweringError> {
         match self {
-            ast::Expr::Ident(ident) => Ok(ident),
+            ast::Expr::Ident(ident) => Ok(ctxt.make_unique(ident)),
             ast::Expr::Lit(l) => l.lower(ctxt),
             ast::Expr::Call(c) => c.lower(ctxt),
             ast::Expr::Func(f) => f.lower(ctxt),
@@ -209,7 +218,7 @@ impl Lower for ast::Object {
 
     fn lower(self, ctxt: &mut Ctxt) -> Result<Self::Ssa, LoweringError> {
         let tid = ctxt.gen_tid();
-        let fields: Result<Vec<Ident>, LoweringError> = self
+        let fields: Result<Vec<(Ident, Ident)>, LoweringError> = self
             .fields
             .into_iter()
             .map(|field| field.lower(ctxt))
@@ -223,13 +232,14 @@ impl Lower for ast::Object {
 }
 
 impl Lower for ast::Field {
-    type Ssa = Ident;
+    type Ssa = (Ident, Ident);
 
     fn lower(self, ctxt: &mut Ctxt) -> Result<Self::Ssa, LoweringError> {
-        ctxt.push_prefix(self.ident);
+        ctxt.push_prefix(self.ident.clone());
         let tid = self.ty.lower(ctxt)?;
         ctxt.pop_prefix();
-        Ok(tid)
+        let fid = ctxt.make_unique(self.ident);
+        Ok((fid, tid))
     }
 }
 

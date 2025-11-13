@@ -116,12 +116,12 @@ impl From<ptree::Proj> for Proj {
 impl From<ptree::Infix> for Call {
     fn from(infix: ptree::Infix) -> Self {
         let name = match infix.kind {
-            ptree::InfixKind::Add => "_add".to_owned(),
-            ptree::InfixKind::Sub => "_sub".to_owned(),
-            ptree::InfixKind::Mul => "_mul".to_owned(),
-            ptree::InfixKind::Div => "_div".to_owned(),
-            ptree::InfixKind::Eq => "_eq".to_owned(),
-            ptree::InfixKind::Ne => "_ne".to_owned(),
+            ptree::InfixKind::Add => "add".to_owned(),
+            ptree::InfixKind::Sub => "sub".to_owned(),
+            ptree::InfixKind::Mul => "mul".to_owned(),
+            ptree::InfixKind::Div => "div".to_owned(),
+            ptree::InfixKind::Eq => "eq".to_owned(),
+            ptree::InfixKind::Ne => "ne".to_owned(),
         };
         Call {
             func: Box::new(Expr::Ident(Ident {

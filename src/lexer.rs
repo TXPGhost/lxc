@@ -124,12 +124,6 @@ pub enum Token {
     #[regex(r"[a-z][_a-z0-9]*")]
     LIdent,
 
-    #[regex(r"_+[A-Z][a-zA-Z0-9]*")]
-    UBIdent,
-
-    #[regex(r"_+[a-z][_a-z0-9]*")]
-    LBIdent,
-
     #[regex(r#"["]([^"\\\n]|\\.|\\\n)*["]"#)]
     String,
 

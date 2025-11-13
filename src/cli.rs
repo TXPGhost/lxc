@@ -1,12 +1,14 @@
 use std::{fs::read_to_string, io::Write, path::PathBuf};
 
 use clap::{Parser, Subcommand};
+use colored::Colorize;
 
 use crate::{
     ast,
     lexer::Lexer,
     parser::{self, ParseError},
-    ssa::lowering::Lower,
+    ssa::lowering::{Ctxt, Lower},
+    style::*,
 };
 
 #[derive(Parser)]
@@ -45,12 +47,12 @@ pub enum EvalResult {
 }
 
 /// Evaluates user input.
-pub fn eval(user_input: &str) -> EvalResult {
+pub fn eval(user_input: &str, ctxt: &mut Ctxt) -> EvalResult {
     // Lexer step
     let mut lexer = match Lexer::new(user_input) {
         Ok(lexer) => lexer,
         Err(e) => {
-            println!("==> lexer error: {e:?}",);
+            println!("{} lexer error: {e:?}", "==>".color(KWD));
             return EvalResult::Failure;
         }
     };
@@ -58,14 +60,14 @@ pub fn eval(user_input: &str) -> EvalResult {
     // Parser step
     let program = match parser::parse_program(&mut lexer) {
         Ok(object) => {
-            println!("==> {object}");
+            println!("{} {object}", "==>".color(KWD));
             object
         }
         Err(ParseError::OutOfTokens) => {
             return EvalResult::Incomplete;
         }
         Err(e) => {
-            println!("==> parse error: {e:?}");
+            println!("{} parse error: {e:?}", "==>".color(KWD));
             return EvalResult::Failure;
         }
     };
@@ -74,9 +76,9 @@ pub fn eval(user_input: &str) -> EvalResult {
     let ast = ast::Object::from(program);
 
     // SSA lowering
-    let ssa = ast.lower_prog().unwrap();
-    println!("\nENTRY {}", ssa.1);
-    println!("{}", ssa.0);
+    let ssa = ast.lower(ctxt).unwrap();
+    println!("\n{} {}", "ENTRY".color(KWD), ssa);
+    println!("{}", ctxt.prog());
 
     EvalResult::Success
 }
@@ -99,7 +101,8 @@ pub fn repl() {
             continue;
         };
 
-        match eval(&user_input) {
+        let mut ctxt = Ctxt::new();
+        match eval(&user_input, &mut ctxt) {
             EvalResult::Success | EvalResult::Failure => user_input.clear(),
             EvalResult::Incomplete => {
                 print!("  ");
@@ -111,5 +114,9 @@ pub fn repl() {
 
 /// Runs the file at the given path.
 pub fn run(file: PathBuf) {
-    eval(&read_to_string(file).expect("unable to read file"));
+    let mut ctxt = Ctxt::new();
+    eval(
+        &read_to_string(file).expect("unable to read file"),
+        &mut ctxt,
+    );
 }

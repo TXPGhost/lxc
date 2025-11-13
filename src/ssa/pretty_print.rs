@@ -1,12 +1,19 @@
 use std::fmt::Display;
 
+use colored::Colorize;
+
 use super::*;
 use crate::style::*;
 
 impl Display for Prog {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for (ident, global) in &self.globals {
-            writeln!(f, "{ident} ==> {global}")?;
+            writeln!(
+                f,
+                "{ident}{} {}{global}",
+                ":".color(PNC),
+                " ".repeat((15 - ident.name.len()).max(0))
+            )?;
         }
         Ok(())
     }
@@ -34,7 +41,7 @@ impl Display for Lit {
 
 impl Display for Func {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "(")?;
+        write!(f, "{} {}", "FUN".color(KWD), "(".color(OPR))?;
         write!(
             f,
             "{}",
@@ -44,7 +51,7 @@ impl Display for Func {
                 .reduce(comma_join)
                 .unwrap_or_default()
         )?;
-        writeln!(f, ") -> {{")?;
+        writeln!(f, "{}", ")".color(OPR))?;
         write!(
             f,
             "{}",
@@ -54,31 +61,30 @@ impl Display for Func {
                 .reduce(newline_join)
                 .unwrap_or_default()
         )?;
-        write!(f, "\n}}")?;
         Ok(())
     }
 }
 
 impl Display for Object {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "(")?;
+        write!(f, "{} {}", "OBJ".color(KWD), "(".color(PNC))?;
         write!(
             f,
             "{}",
             self.fields
                 .iter()
-                .map(Ident::to_string)
+                .map(|(fid, tid)| format!("{fid}: {tid}"))
                 .reduce(comma_join)
                 .unwrap_or_default()
         )?;
-        write!(f, ")")?;
+        write!(f, "{}", ")".color(PNC))?;
         Ok(())
     }
 }
 
 impl Display for Param {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}: {}", self.ident, self.ty)
+        write!(f, "{}{} {}", self.ident, ":".color(PNC), self.ty)
     }
 }
 
@@ -88,14 +94,16 @@ impl Display for Stmt {
         match self {
             Stmt::Call(c) => write!(
                 f,
-                "{} = {}({})",
+                "{} = {}{}{}{}",
                 c.ident,
                 c.func,
+                "(".color(OPR),
                 c.args
                     .iter()
                     .map(Ident::to_string)
                     .reduce(comma_join)
-                    .unwrap_or_default()
+                    .unwrap_or_default(),
+                ")".color(OPR),
             )?,
             Stmt::Decl(d) => write!(f, "{} = {}", d.lhs, d.rhs)?,
             Stmt::Const(c) => write!(f, "{} = {}", c.ident, c.lit)?,

@@ -221,20 +221,6 @@ pub fn parse_ident(lexer: &mut Lexer<'_, 2>) -> Result<Ident, ParseError> {
             kind: IdentKind::Type,
         });
     }
-    if lexer.peek_matches(Token::LBIdent) {
-        let slice = lexer.expect(Token::LBIdent)?;
-        return Ok(Ident {
-            name: slice.to_owned(),
-            kind: IdentKind::BuiltinValue,
-        });
-    }
-    if lexer.peek_matches(Token::UBIdent) {
-        let slice = lexer.expect(Token::UBIdent)?;
-        return Ok(Ident {
-            name: slice.to_owned(),
-            kind: IdentKind::BuiltinType,
-        });
-    }
     Err(ParseError::Custom {
         message: "expected identifier",
         at_token: lexer.peek(),
@@ -281,13 +267,7 @@ pub fn parse_atomic_expression(lexer: &mut Lexer<'_, 2>) -> Result<Expr, ParseEr
             expr: Box::new(expr),
         }));
     }
-    if lexer.peek_matches_any(&[
-        Token::Underscore,
-        Token::LIdent,
-        Token::UIdent,
-        Token::LBIdent,
-        Token::UBIdent,
-    ]) {
+    if lexer.peek_matches_any(&[Token::Underscore, Token::LIdent, Token::UIdent]) {
         return Ok(Expr::Ident(parse_ident(lexer)?));
     }
     if lexer.peek_matches(Token::LParen) {

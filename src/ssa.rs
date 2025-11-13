@@ -1,3 +1,10 @@
+//! Single static assignment form. At this stage we reduce the AST to a flat structure of global
+//! declarations. Identifiers get unique names that begin with `.` and contain the sequence of
+//! identifiers that belong to that scope (e.g. `.main.x` for a local variable). We also introduce
+//! names like `.main.v42` for local variables, or `.T6` for a type declaration. When resolving
+//! identifiers we will first look for an exact match, then remove prefixes until we find something
+//! that works.
+
 use indexmap::IndexMap;
 
 pub use crate::ast::{Ident, Lit};
@@ -101,5 +108,5 @@ pub enum Global {
 #[derive(Debug)]
 pub struct Object {
     /// The list of object fields (also global identifiers).
-    pub fields: Vec<Ident>,
+    pub fields: Vec<(Ident, Ident)>,
 }
