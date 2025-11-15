@@ -4,10 +4,13 @@ use clap::{Parser, Subcommand};
 use colored::Colorize;
 
 use crate::{
-    ast,
+    ast::{self, Ident, IdentKind},
     lexer::Lexer,
     parser::{self, ParseError},
-    ssa::lowering::{Ctxt, Lower},
+    ssa::{
+        Global,
+        lowering::{Ctxt, Lower},
+    },
     style::*,
 };
 
@@ -81,6 +84,31 @@ pub fn eval(user_input: &str, ctxt: &mut Ctxt) -> EvalResult {
     println!("\n{}", "-- Single Static Assignment".color(PNC));
     println!("{} {}\n", "ENTRY".color(KWD), ssa);
     println!("{}", ctxt.prog());
+
+    // Main function resolution
+    let entry = ctxt
+        .prog()
+        .globals
+        .get(&Ident {
+            name: "_T1".to_owned(),
+            kind: IdentKind::Type,
+        })
+        .unwrap();
+    let Global::Object(entry) = entry else {
+        unreachable!();
+    };
+    let mut main = None;
+    for (ident, field) in &entry.fields {
+        if ident.name == "main" {
+            main = Some(field);
+            break;
+        }
+    }
+
+    match main {
+        Some(main) => println!("-- Found main function at {}", main.name),
+        None => println!("-- Did not find main function"),
+    }
 
     EvalResult::Success
 }

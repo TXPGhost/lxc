@@ -10,7 +10,7 @@ pub struct Ctxt {
     prog: Prog,
 
     /// Some identifier to prefix to all child identifiers (guarantees uniqueness).
-    ident_prefix: String,
+    ident_suffix: Vec<String>,
 
     /// The current function being lowered.
     func: Option<Func>,
@@ -20,13 +20,16 @@ pub struct Ctxt {
 }
 
 impl Ctxt {
+    /// Name-mangling separator for identifiers.
+    pub const MANGLE: char = '@';
+
     /// Constructs a new context.
     pub fn new() -> Self {
         Self {
             prog: Prog {
                 globals: IndexMap::new(),
             },
-            ident_prefix: String::new(),
+            ident_suffix: Vec::new(),
             func: None,
             ident_idx: 0,
         }
@@ -37,13 +40,21 @@ impl Ctxt {
         &self.prog
     }
 
-    /// Joins an identifier with the current prefix to generate a unique identifier.
-    fn make_unique(&self, ident: Ident) -> Ident {
-        if matches!(ident.kind, IdentKind::BuiltinValue | IdentKind::BuiltinType) {
+    /// Joins an identifier with the current suffix to generate a unique identifier.
+    fn make_unique(&mut self, ident: Ident) -> Ident {
+        if matches!(ident.kind, IdentKind::Void) {
+            return self.gen_vid();
+        }
+        if matches!(ident.kind, IdentKind::BuiltinValue | IdentKind::BuiltinType)
+            || self.ident_suffix.is_empty()
+        {
             return ident;
         }
         Ident {
-            name: format!("{}.{}", self.ident_prefix, ident.name),
+            name: std::iter::once(ident.name)
+                .chain(self.ident_suffix.iter().rev().cloned())
+                .reduce(|acc, s| format!("{}{}{}", acc, Self::MANGLE, s))
+                .unwrap_or_default(),
             kind: ident.kind,
         }
     }
@@ -52,7 +63,7 @@ impl Ctxt {
     fn gen_vid(&mut self) -> Ident {
         self.ident_idx += 1;
         self.make_unique(Ident {
-            name: format!("v{}", self.ident_idx),
+            name: format!("_v{}", self.ident_idx),
             kind: ast::IdentKind::Value,
         })
     }
@@ -61,25 +72,19 @@ impl Ctxt {
     fn gen_tid(&mut self) -> Ident {
         self.ident_idx += 1;
         self.make_unique(Ident {
-            name: format!("T{}", self.ident_idx),
+            name: format!("_T{}", self.ident_idx),
             kind: ast::IdentKind::Type,
         })
     }
 
-    /// Pushes an identifier prefix to the current context.
-    fn push_prefix(&mut self, ident: Ident) {
-        self.ident_prefix = self.make_unique(ident).name
+    /// Pushes an identifier suffix to the current context.
+    fn push_suffix(&mut self, ident: Ident) {
+        self.ident_suffix.push(ident.name);
     }
 
-    /// Pops an identifier prefix from the current context, returning [true] if one was popped.
-    fn pop_prefix(&mut self) -> bool {
-        match self.ident_prefix.match_indices('.').next_back() {
-            Some(index) => {
-                self.ident_prefix = self.ident_prefix[..index.0].to_owned();
-                true
-            }
-            None => false,
-        }
+    /// Pops an identifier sufix from the current context, returning [true] if one was popped.
+    fn pop_suffix(&mut self) -> bool {
+        self.ident_suffix.pop().is_some()
     }
 
     /// Pushes a constant literal to the global context, returns an identifier.
@@ -96,6 +101,15 @@ impl Ctxt {
             .expect("called push_decl without active func")
             .stmts
             .push(Stmt::Decl(Decl { lhs, rhs }))
+    }
+
+    /// Pushes a return statement to the current function.
+    fn push_return(&mut self, id: Ident) {
+        self.func
+            .as_mut()
+            .expect("called push_return without active func")
+            .stmts
+            .push(Stmt::Return(id))
     }
 
     /// Pushes a function call statement to the currently active function, returns an identifier.
@@ -235,9 +249,9 @@ impl Lower for ast::Field {
     type Ssa = (Ident, Ident);
 
     fn lower(self, ctxt: &mut Ctxt) -> Result<Self::Ssa, LoweringError> {
-        ctxt.push_prefix(self.ident.clone());
+        ctxt.push_suffix(self.ident.clone());
         let tid = self.ty.lower(ctxt)?;
-        ctxt.pop_prefix();
+        ctxt.pop_suffix();
         let fid = ctxt.make_unique(self.ident);
         Ok((fid, tid))
     }
@@ -267,7 +281,7 @@ impl Lower for ast::Func {
 }
 
 impl Lower for ast::Stmt {
-    type Ssa = Ident;
+    type Ssa = ();
 
     fn lower(self, ctxt: &mut Ctxt) -> Result<Self::Ssa, LoweringError> {
         match self {
@@ -275,10 +289,17 @@ impl Lower for ast::Stmt {
                 let rhs = expr.lower(ctxt)?;
                 let lhs = ctxt.make_unique(ident);
                 ctxt.push_decl(lhs.clone(), rhs);
-                Ok(lhs)
+                Ok(())
             }
-            ast::Stmt::Assn(_) => todo!(),
-            ast::Stmt::Return(_) => todo!(),
+            ast::Stmt::Assn(a) => {
+                dbg!(a);
+                todo!();
+            }
+            ast::Stmt::Return(expr) => {
+                let ident = expr.lower(ctxt)?;
+                ctxt.push_return(ident);
+                Ok(())
+            }
         }
     }
 }

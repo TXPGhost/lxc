@@ -70,7 +70,7 @@ impl From<ptree::Stmt> for Stmt {
                 ident,
                 expr: Expr::from(expr),
             }),
-            ptree::Stmt::Expr(expr) => Stmt::Assn(Assn {
+            ptree::Stmt::Expr(expr) => Stmt::Decl(Decl {
                 ident: Ident::void(),
                 expr: Expr::from(expr),
             }),
@@ -80,9 +80,25 @@ impl From<ptree::Stmt> for Stmt {
 
 impl From<ptree::Block> for Block {
     fn from(block: ptree::Block) -> Block {
-        Block {
-            stmts: block.stmts.into_iter().map(Stmt::from).collect(),
+        let mut stmts: Vec<Stmt> = block.stmts.into_iter().map(Stmt::from).collect();
+        if !stmts.is_empty() {
+            let last = stmts.pop().unwrap();
+            let last = if let Stmt::Decl(Decl {
+                ident:
+                    Ident {
+                        kind: IdentKind::Void,
+                        ..
+                    },
+                expr,
+            }) = last
+            {
+                Stmt::Return(expr)
+            } else {
+                last
+            };
+            stmts.push(last);
         }
+        Block { stmts }
     }
 }
 

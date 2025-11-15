@@ -4,7 +4,7 @@ use std::fmt::Display;
 use super::*;
 use crate::style::*;
 
-const PADDING: usize = 16;
+const PADDING: usize = 24;
 const INDENT: usize = 4;
 
 impl Display for Prog {
@@ -42,9 +42,9 @@ impl Display for Global {
 impl Display for Lit {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Lit::String(s) => write!(f, "{}", s.color(LIT)),
-            Lit::Integer(i) => write!(f, "{}", i.to_string().color(LIT)),
-            Lit::Float(n) => write!(f, "{}", n.to_string().color(LIT)),
+            Lit::String(s) => write!(f, "{}", format!("\"{s}\"").color(LIT)),
+            Lit::Integer(i) => write!(f, "{}", i.color(LIT)),
+            Lit::Float(n) => write!(f, "{}", n.color(LIT)),
         }
     }
 }
@@ -83,7 +83,7 @@ impl Display for Object {
             "{}",
             self.fields
                 .iter()
-                .map(|(fid, tid)| format!("{fid}: {tid}"))
+                .map(|(fid, tid)| format!("{fid}{} {tid}", ":".color(PNC)))
                 .reduce(comma_join)
                 .unwrap_or_default()
         )?;
@@ -104,8 +104,9 @@ impl Display for Stmt {
         match self {
             Stmt::Call(c) => write!(
                 f,
-                "{} = {}{}{}{}",
+                "{} {} {}{}{}{}",
                 c.ident,
+                "=".color(PNC),
                 c.func,
                 "(".color(OPR),
                 c.args
@@ -117,6 +118,7 @@ impl Display for Stmt {
             )?,
             Stmt::Decl(d) => write!(f, "{} = {}", d.lhs, d.rhs)?,
             Stmt::Const(c) => write!(f, "{} = {}", c.ident, c.lit)?,
+            Stmt::Return(e) => write!(f, "{e}")?,
         }
         Ok(())
     }

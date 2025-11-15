@@ -1,9 +1,9 @@
 //! Single static assignment form. At this stage we reduce the AST to a flat structure of global
-//! declarations. Identifiers get unique names that begin with `.` and contain the sequence of
-//! identifiers that belong to that scope (e.g. `.main.x` for a local variable). We also introduce
-//! names like `.main.v42` for local variables, or `.T6` for a type declaration. When resolving
-//! identifiers we will first look for an exact match, then remove prefixes until we find something
-//! that works.
+//! declarations. Identifiers get unique names which correspond to the path taken to access them
+//! (e.g. `x@main` for a local variable within the `main` function). We also introduce names like
+//! `_v42@main` for local variables, or `_T6` for type declarations. When resolving identifiers we
+//! will first look for an exact match, then remove suffixes until we find something that works. In
+//! this way, locally-scoped values shadow their global counterparts.
 
 use indexmap::IndexMap;
 
@@ -56,6 +56,9 @@ pub enum Stmt {
 
     /// A statement of the form `ident = LIT`, assigning a constant value.
     Const(Const),
+
+    /// A return statement of the form `ident`.
+    Return(Ident),
 }
 
 /// A function call statement.
