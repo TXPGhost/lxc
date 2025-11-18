@@ -106,8 +106,12 @@ pub fn eval(user_input: &str, ctxt: &mut Ctxt) -> EvalResult {
     }
 
     match main {
-        Some(main) => println!("-- Found main function at {}", main.name),
-        None => println!("-- Did not find main function"),
+        Some(main) => println!(
+            "{} {}",
+            "-- Found main function at".color(PNC),
+            main.name.color(PNC)
+        ),
+        None => println!("{}", "-- Did not find main function".color(PNC)),
     }
 
     EvalResult::Success
