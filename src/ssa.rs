@@ -39,23 +39,13 @@ pub struct Prog {
 #[derive(Debug)]
 pub struct Func {
     /// The list of function parameters.
-    pub params: Vec<Param>,
+    pub params: Vec<Ident>,
 
     /// The list of function body statements (points into global definitions).
     pub stmts: Vec<Ident>,
 
     /// The optional function return identifier.
     pub ret: Option<Ident>,
-}
-
-/// A function parameter.
-#[derive(Debug)]
-pub struct Param {
-    /// The parameter name.
-    pub ident: Ident,
-
-    /// The parameter type.
-    pub ty: Ident,
 }
 
 /// A statement within a function body.
@@ -92,6 +82,9 @@ pub enum Global {
 
     /// A statement.
     Stmt(Stmt),
+
+    /// A function parameter with a type identifier.
+    Param(Ident),
 }
 
 /// An object definition.

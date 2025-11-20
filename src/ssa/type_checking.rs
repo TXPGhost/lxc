@@ -151,8 +151,8 @@ impl Prog {
             Global::Func(func) => {
                 let mut tys = IndexMap::new();
                 for param in &func.params {
-                    let ty = self.type_check(&param.ty, types)?;
-                    tys.insert(param.ident.clone(), types.assign(&param.ident, ty));
+                    let ty = self.type_check(param, types)?;
+                    tys.insert(param.clone(), ty);
                 }
                 let arg_ty = Type::Object(tys);
                 for stmt in &func.stmts {
@@ -177,6 +177,10 @@ impl Prog {
             Global::Stmt(stmt) => {
                 let ty = self.typecheck_stmt(stmt, types)?;
                 types.assign(ident, ty)
+            }
+            Global::Param(param) => {
+                let ty = self.type_check(param, types)?;
+                types.assign(param, ty)
             }
         };
         Ok(types.assign(ident, ty))

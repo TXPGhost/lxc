@@ -80,19 +80,13 @@ pub fn eval(user_input: &str, ctxt: &mut Ctxt) -> EvalResult {
             return EvalResult::Failure;
         }
     };
+    println!();
 
     // AST lowering
     let ast = ast::Object::from(program);
 
     // SSA lowering
     let ssa = ast.lower(ctxt).unwrap();
-    println!("\n{}", "-- Single Static Assignment".color(PNC));
-    println!(
-        "{} {}\n",
-        "ENTRY".color(KWD),
-        ssa.printable(PrettyPrintCtxt::default())
-    );
-    println!("{}", ctxt.prog().printable_ssa(ctxt.prog()));
 
     // Main function resolution
     let main = ctxt.main();
@@ -110,7 +104,6 @@ pub fn eval(user_input: &str, ctxt: &mut Ctxt) -> EvalResult {
         Ok(_) => {}
         Err(e) => eprintln!("{} type error: {e:?}", "ERR".color(KWD)),
     }
-    dbg!(&ctxt.types());
 
     println!("\n{}", "-- Single Static Assignment".color(PNC));
     println!(

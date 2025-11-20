@@ -50,8 +50,9 @@ impl PrettyPrintSsa for Prog {
                     write!(f, "{} ", "FUN".color(KWD))?;
                 }
                 Global::Object(_) => write!(f, "{} ", "OBJ".color(KWD))?,
-                Global::Stmt(_) => continue, // will be printed within the body
+                Global::Stmt(_) | Global::Param(_) => continue, // will be printed locally instead
             };
+
             writeln!(
                 f,
                 "{}{} {}{}",
@@ -75,6 +76,7 @@ impl PrettyPrintSsa for Global {
             Global::Func(func) => func.pretty_print(f, prog),
             Global::Object(object) => object.pretty_print(f, prog),
             Global::Stmt(stmt) => stmt.pretty_print(f, prog),
+            Global::Param(ident) => ident.pretty_print(f, prog),
         }
     }
 }
@@ -97,7 +99,18 @@ impl PrettyPrintSsa for Func {
             "{}",
             self.params
                 .iter()
-                .map(|param| param.printable_ssa(prog).to_string())
+                .map(|param| prog
+                    .globals
+                    .get(param)
+                    .map(|ty| {
+                        format!(
+                            "{}{} {}",
+                            param.printable_ssa(prog),
+                            ":".color(PNC),
+                            ty.printable_ssa(prog)
+                        )
+                    })
+                    .unwrap_or_else(|| "<unknown ident>".to_owned()))
                 .reduce(comma_join)
                 .unwrap_or_default()
         )?;
@@ -168,18 +181,6 @@ impl PrettyPrintSsa for Object {
     }
 }
 
-impl PrettyPrintSsa for Param {
-    fn pretty_print(&self, f: &mut std::fmt::Formatter<'_>, prog: &Prog) -> std::fmt::Result {
-        write!(
-            f,
-            "{}{} {}",
-            self.ident.printable_ssa(prog),
-            ":".color(PNC),
-            self.ty.printable_ssa(prog),
-        )
-    }
-}
-
 impl PrettyPrintSsa for Ident {
     fn pretty_print(&self, f: &mut std::fmt::Formatter<'_>, _prog: &Prog) -> std::fmt::Result {
         match self.kind {
@@ -232,7 +233,7 @@ impl Display for Type {
                     .reduce(comma_join)
                     .unwrap_or_default()
             ),
-            Type::Func(arg, body) => write!(f, "{arg} -> {body}"),
+            Type::Func(arg, body) => write!(f, "{arg} {body}"),
             Type::Void => write!(f, "_"),
         }
     }

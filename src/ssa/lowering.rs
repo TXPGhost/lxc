@@ -308,11 +308,8 @@ impl Lower for ast::Func {
         for param in self.params.fields {
             let vid = ctxt.make_unique(param.ident);
             let ty = param.ty.lower(ctxt)?;
-            ctxt.func
-                .as_mut()
-                .unwrap()
-                .params
-                .push(Param { ident: vid, ty })
+            ctxt.prog.globals.insert(vid.clone(), Global::Param(ty));
+            ctxt.func.as_mut().unwrap().params.push(vid)
         }
         if let Some(body) = self.body {
             let mut iter = body.stmts.into_iter().peekable();
