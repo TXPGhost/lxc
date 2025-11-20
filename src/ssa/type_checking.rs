@@ -149,6 +149,13 @@ pub enum TypeCheckError {
     #[error("too few function arguments")]
     TooFewFunctionArguments,
 
+    /// A function type was expected.
+    #[error("expected a function type")]
+    ExpectedFunctionType {
+        /// The found type.
+        found: Box<Type>,
+    },
+
     /// An illegal function argument type was provided.
     #[error("illegal argument type")]
     IllegalArgumentType {
@@ -210,11 +217,14 @@ impl Prog {
                 if c.func.kind == IdentKind::BuiltinValue {
                     return self.typecheck_builtin_func(c, types);
                 }
-                let Type::Func(arg_ty, ret_ty) = self.type_check(&c.func, types)? else {
-                    unreachable!()
+                let func_ty = self.type_check(&c.func, types)?;
+                let Type::Func(arg_ty, ret_ty) = func_ty else {
+                    return Err(TypeCheckError::ExpectedFunctionType {
+                        found: Box::new(func_ty),
+                    });
                 };
                 let Type::Object(arg_ty) = *arg_ty else {
-                    unreachable!()
+                    unreachable!("function argument type is always an object type")
                 };
                 for i in 0..c.args.len() {
                     let arg = &c.args[i];
@@ -247,7 +257,7 @@ impl Prog {
         match func {
             "add" | "sub" | "mul" | "div" | "eq" | "ne" => {
                 if call.args.len() != 2 {
-                    unreachable!();
+                    unreachable!("binop should always have two arguments");
                 }
                 let lhs = &call.args[0];
                 let rhs = &call.args[1];
@@ -283,6 +293,11 @@ impl Prog {
                 "sub" => Ok(Type::ConstF64(lhs - rhs)),
                 "mul" => Ok(Type::ConstF64(lhs * rhs)),
                 "div" => Ok(Type::ConstF64(lhs / rhs)),
+                "eq" => Ok(Type::ConstBool(lhs == rhs)),
+                "ne" => Ok(Type::ConstBool(lhs != rhs)),
+                _ => unimplemented!(),
+            },
+            (Type::ConstBool(lhs), Type::ConstBool(rhs)) => match op {
                 "eq" => Ok(Type::ConstBool(lhs == rhs)),
                 "ne" => Ok(Type::ConstBool(lhs != rhs)),
                 _ => unimplemented!(),

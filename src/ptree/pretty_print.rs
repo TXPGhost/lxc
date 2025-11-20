@@ -147,7 +147,7 @@ impl PrettyPrint for Func {
                     body.printable(ppc)
                 )
             }
-            (None, None) => unreachable!(),
+            (None, None) => unreachable!("parser shouldn't allow this"),
         }
     }
 }

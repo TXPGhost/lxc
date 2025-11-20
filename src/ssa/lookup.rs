@@ -13,7 +13,7 @@ impl Prog {
     /// Returns the base object of the program.
     pub fn base(&self) -> &Object {
         let Global::Object(base) = self.globals.get(&self.base_id()).unwrap() else {
-            unreachable!()
+            unreachable!("base identifier should always be an object")
         };
         base
     }
@@ -27,6 +27,7 @@ impl Prog {
     }
 
     /// Attempts to resolve the given qualified identifier.
+    /// TODO: location-dependent lookup (i.e. lookup "before" something is defined shouldn't work)
     pub fn lookup(&self, ident: &Ident) -> Result<&Global, LookupError> {
         let mut id = ident.clone();
         loop {
@@ -42,11 +43,13 @@ impl Prog {
                 // prelude lookup
                 return Ok(global);
             } else if let Some(idx) = id.name.rfind('@') {
+                // relax search to parent scope
                 id = Ident {
                     name: id.name[..idx].to_owned(),
                     kind: id.kind,
                 };
             } else {
+                // lookup has failed
                 return Err(LookupError(ident.clone()));
             }
         }
