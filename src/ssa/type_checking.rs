@@ -12,36 +12,36 @@ use super::*;
 /// A type-checked type.
 #[derive(Debug, Clone)]
 pub enum Type {
-    /// 64-bit signed integer
+    /// 64-bit signed integer type.
     I64,
 
-    /// 64-bit floating point
+    /// 64-bit floating point type.
     F64,
 
-    /// 64-bit signed integer constant
+    /// 64-bit signed integer constant.
     ConstI64(i64),
 
-    /// 64-bit floating point constant (never NaN or infinity)
+    /// 64-bit floating point constant (never NaN or infinity).
     ConstF64(f64),
 
-    /// Boolean
+    /// Boolean type.
     Bool,
 
-    /// Cosntant boolean
+    /// Cosntant boolean type.
     ConstBool(bool),
 
-    /// Object type
+    /// Object (struct) type.
     Object(IndexMap<Ident, Type>),
 
-    /// Function type (argument type, return type)
+    /// Function type in the form (argument type, return type).
     Func(Box<Type>, Box<Type>),
 
-    /// Void type
+    /// Void type (indicates the absence of a value, e.g. functions without a return).
     Void,
 }
 
 impl Type {
-    /// Returns [true] if this type is a subtype of [other].
+    /// Returns [true] if this type is a subtype of `other`.
     pub fn subtype_of(&self, other: &Self) -> bool {
         match (self, other) {
             (Type::I64, Type::I64) => true,
@@ -64,18 +64,42 @@ impl Type {
                 true
             }
             (Type::Func(lhs_arg, lhs_ret), Type::Func(rhs_arg, rhs_ret)) => {
-                // contravariance
+                // Contravariance means the argument type relation is flipped.
                 lhs_ret.subtype_of(rhs_ret) && lhs_arg.supertype_of(rhs_arg)
             }
             _ => false,
         }
     }
 
-    /// Returns [true] if this type is a subtype of [other].
+    /// Returns [true] if this type is a subtype of `other`.
     pub fn supertype_of(&self, other: &Self) -> bool {
         other.subtype_of(self)
     }
+
+    /// Returns the size of this type in bytes. A type may have a size of zero, which indicates
+    /// that it will be optimized away by the compiler and never actually stored in memory. Some
+    /// types have the size of a pointer, which is taken from the passed-in `ptr_size`.
+    pub fn size(&self, ptr_size: usize) -> usize {
+        match self {
+            Type::I64 => 8,
+            Type::F64 => 8,
+            Type::ConstI64(_) => 0,
+            Type::ConstF64(_) => 0,
+            Type::Bool => 1,
+            Type::ConstBool(_) => 0,
+            Type::Object(fields) => todo!("size of compound types"),
+            Type::Func(_, _) => ptr_size,
+            Type::Void => 0,
+        }
+    }
 }
+
+impl PartialEq for Type {
+    fn eq(&self, other: &Self) -> bool {
+        self.subtype_of(other) && self.supertype_of(other)
+    }
+}
+impl Eq for Type {}
 
 /// Mapping from globally-unique identifiers to types.
 #[derive(Debug)]

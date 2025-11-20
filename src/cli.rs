@@ -5,6 +5,7 @@ use colored::Colorize;
 
 use crate::{
     ast,
+    code_gen::CodeGenCtxt,
     lexer::Lexer,
     parser::{self, ParseError},
     ptree::pretty_print::{PrettyPrint, PrettyPrintCtxt},
@@ -89,7 +90,7 @@ pub fn eval(user_input: &str, ctxt: &mut Ctxt) -> EvalResult {
     let ssa = ast.lower(ctxt).unwrap();
 
     // Main function resolution
-    let main = ctxt.main();
+    let main = ctxt.prog().main();
     match main {
         Some(main) => println!(
             "{} {}",
@@ -112,6 +113,17 @@ pub fn eval(user_input: &str, ctxt: &mut Ctxt) -> EvalResult {
         ssa.printable(PrettyPrintCtxt::default())
     );
     println!("{}", ctxt.prog().printable_ssa(ctxt.prog()));
+
+    // Code generation
+    let code_gen = CodeGenCtxt::new(ctxt.prog());
+    code_gen.generate("output.o").unwrap();
+    std::process::Command::new("objdump")
+        .arg("-d")
+        .arg("output.o")
+        .spawn()
+        .expect("failed to call objdump")
+        .wait()
+        .expect("failed to call objdump");
 
     EvalResult::Success
 }

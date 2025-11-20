@@ -1,4 +1,4 @@
-CodeGen {
+CodeGen (
 	context: Context
 	module: Module
 	builder: Builder
@@ -23,4 +23,4 @@ CodeGen {
 
 		execution_engine.get_function("sum").ok()
 	}
-}
+)

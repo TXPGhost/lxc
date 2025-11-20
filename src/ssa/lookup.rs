@@ -26,6 +26,19 @@ impl Prog {
         }
     }
 
+    /// Finds the main function of the program.
+    pub fn main(&self) -> Option<Ident> {
+        let base = self.base();
+        let mut main = None;
+        for (ident, field) in &base.fields {
+            if ident.name == "main" {
+                main = Some(field);
+                break;
+            }
+        }
+        main.cloned()
+    }
+
     /// Attempts to resolve the given qualified identifier.
     /// TODO: location-dependent lookup (i.e. lookup "before" something is defined shouldn't work)
     pub fn lookup(&self, ident: &Ident) -> Result<&Global, LookupError> {

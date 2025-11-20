@@ -46,19 +46,6 @@ impl Ctxt {
         &self.prog
     }
 
-    /// Finds the main function of the program.
-    pub fn main(&self) -> Option<Ident> {
-        let base = self.prog.base();
-        let mut main = None;
-        for (ident, field) in &base.fields {
-            if ident.name == "main" {
-                main = Some(field);
-                break;
-            }
-        }
-        main.cloned()
-    }
-
     /// Type checks the current program.
     pub fn type_check(&mut self) -> Result<(), TypeCheckError> {
         let mut types = Types::new();
