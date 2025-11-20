@@ -2,7 +2,7 @@ use colored::Colorize;
 use std::fmt::{self, Display};
 
 use super::*;
-use crate::style::*;
+use crate::{ssa::type_checking::Type, style::*};
 
 const PADDING: usize = 24;
 const INDENT: usize = 4;
@@ -38,7 +38,17 @@ impl PrettyPrintSsa for Prog {
         for (ident, global) in &self.globals {
             match global {
                 Global::Lit(_) => write!(f, "{} ", "LIT".color(KWD))?,
-                Global::Func(_) => write!(f, "\n{} ", "FUN".color(KWD))?,
+                Global::Func(_) => {
+                    if let Some(types) = &prog.types {
+                        match types.lookup(ident) {
+                            Ok(ty) => {
+                                writeln!(f, "\n{} {}", "--".color(PNC), ty.to_string().color(PNC))?
+                            }
+                            Err(_) => writeln!(f, "\n{}", "-- <unknown type>".color(PNC))?,
+                        }
+                    }
+                    write!(f, "{} ", "FUN".color(KWD))?;
+                }
                 Global::Object(_) => write!(f, "{} ", "OBJ".color(KWD))?,
                 Global::Stmt(_) => continue, // will be printed within the body
             };
@@ -100,14 +110,27 @@ impl PrettyPrintSsa for Func {
                 .map(|ident| prog
                     .globals
                     .get(ident)
-                    .map(|stmt| format!(
-                        "{}{} {} {}",
-                        " ".repeat(PADDING + INDENT),
-                        ident.printable_ssa(prog),
-                        "=".color(PNC),
-                        stmt.printable_ssa(prog)
-                    ))
-                    .unwrap_or_else(|| "<???>".to_owned()))
+                    .map(|stmt| {
+                        let mut s = format!(
+                            "{}{} {} {}",
+                            " ".repeat(PADDING + INDENT),
+                            ident.printable_ssa(prog),
+                            "=".color(PNC),
+                            stmt.printable_ssa(prog)
+                        );
+                        if let Some(types) = &prog.types {
+                            s += &format!(
+                                "  {} {}",
+                                "--".color(PNC),
+                                match types.lookup(ident) {
+                                    Ok(ty) => ty.to_string().color(PNC),
+                                    Err(_) => "<unknown type>".color(PNC),
+                                }
+                            )
+                        }
+                        s
+                    })
+                    .unwrap_or_else(|| "<unknown ident>".to_owned()))
                 .reduce(newline_join)
                 .unwrap_or_default()
         )?;
@@ -187,9 +210,30 @@ impl PrettyPrintSsa for Stmt {
                     .reduce(comma_join)
                     .unwrap_or_default(),
                 ")".color(OPR),
-            )?,
-            Stmt::Decl(d) => write!(f, "{}", d.printable_ssa(prog))?,
+            ),
+            Stmt::Decl(d) => write!(f, "{}", d.printable_ssa(prog)),
         }
-        Ok(())
+    }
+}
+
+impl Display for Type {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Type::I64 => write!(f, "I64"),
+            Type::F64 => write!(f, "F64"),
+            Type::ConstI64(i) => write!(f, "I64({i})"),
+            Type::ConstF64(n) => write!(f, "F64({n})"),
+            Type::Object(fields) => write!(
+                f,
+                "({})",
+                fields
+                    .iter()
+                    .map(|(id, ty)| format!("{}: {ty}", id.name))
+                    .reduce(comma_join)
+                    .unwrap_or_default()
+            ),
+            Type::Func(arg, body) => write!(f, "{arg} -> {body}"),
+            Type::Void => write!(f, "_"),
+        }
     }
 }

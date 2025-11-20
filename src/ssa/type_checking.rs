@@ -133,6 +133,10 @@ pub enum TypeCheckError {
     #[error("too many function arguments")]
     TooManyFunctionArguments,
 
+    /// Too few arguments provided to a function.
+    #[error("too few function arguments")]
+    TooFewFunctionArguments,
+
     /// An illegal function argument type was provided.
     #[error("illegal argument type")]
     IllegalArgumentType,
@@ -200,6 +204,9 @@ impl Prog {
                         return Err(TypeCheckError::IllegalArgumentType);
                     }
                 }
+                if c.args.len() < arg_ty.len() {
+                    return Err(TypeCheckError::TooFewFunctionArguments);
+                }
                 Ok(*ret_ty)
             }
             Stmt::Decl(decl) => Ok(self.type_check(decl, types)?),
@@ -240,16 +247,16 @@ impl Prog {
             (Type::F64, Type::F64) => Ok(Type::F64),
             (Type::ConstI64(lhs), Type::ConstI64(rhs)) => match op {
                 "add" => Ok(Type::ConstI64(lhs + rhs)),
-                "sub" => Ok(Type::ConstI64(lhs + rhs)),
-                "mul" => Ok(Type::ConstI64(lhs + rhs)),
-                "div" => Ok(Type::ConstI64(lhs + rhs)),
+                "sub" => Ok(Type::ConstI64(lhs - rhs)),
+                "mul" => Ok(Type::ConstI64(lhs * rhs)),
+                "div" => Ok(Type::ConstI64(lhs / rhs)),
                 _ => unimplemented!(),
             },
             (Type::ConstF64(lhs), Type::ConstF64(rhs)) => match op {
                 "add" => Ok(Type::ConstF64(lhs + rhs)),
-                "sub" => Ok(Type::ConstF64(lhs + rhs)),
-                "mul" => Ok(Type::ConstF64(lhs + rhs)),
-                "div" => Ok(Type::ConstF64(lhs + rhs)),
+                "sub" => Ok(Type::ConstF64(lhs - rhs)),
+                "mul" => Ok(Type::ConstF64(lhs * rhs)),
+                "div" => Ok(Type::ConstF64(lhs / rhs)),
                 _ => unimplemented!(),
             },
             _ => unimplemented!(),
@@ -270,43 +277,3 @@ fn typecheck_lit(lit: &Lit) -> Result<Type, TypeCheckError> {
         },
     }
 }
-
-//
-// /// Indicates that a type is capable of type checking.
-// pub trait TypeCheck {
-//     /// Performs type checking on the given value, also adding types to the global mapping.
-//     fn type_check(&self, types: &mut Types) -> Result<Type, TypeCheckError>;
-// }
-//
-// impl TypeCheck for Lit {
-//     fn type_check(&self, _: &mut Types) -> Result<Type, TypeCheckError> {
-//         match self {
-//             Lit::String(_) => todo!("implement strings"),
-//             Lit::Integer(i) => match i.parse::<i64>() {
-//                 Ok(i) => Ok(Type::ConstI64(i)),
-//                 Err(e) => Err(TypeCheckError::ParseIntError(e)),
-//             },
-//             Lit::Float(f) => match f.parse::<f64>() {
-//                 Ok(f) => Ok(Type::ConstF64(f)),
-//                 Err(e) => Err(TypeCheckError::ParseFloatError(e)),
-//             },
-//         }
-//     }
-// }
-//
-// impl TypeCheck for Const {
-//     fn type_check(&self, types: &mut Types) -> Result<Type, TypeCheckError> {
-//         let ty = self.lit.type_check(types)?;
-//         Ok(types.assign(&self.ident, ty))
-//     }
-// }
-//
-// impl TypeCheck for Field {}
-//
-// impl TypeCheck for Object {
-//     fn type_check(&self, types: &mut Types) -> Result<Type, TypeCheckError> {
-//         for (fid, id) in self.fields {
-//             field.type_check(types)?;
-//         }
-//     }
-// }

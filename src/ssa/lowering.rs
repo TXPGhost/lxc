@@ -1,7 +1,10 @@
 use indexmap::IndexMap;
 
 use super::*;
-use crate::ast::{self, IdentKind};
+use crate::{
+    ast::{self, IdentKind},
+    ssa::type_checking::TypeCheckError,
+};
 
 /// Context for the lowering process.
 #[derive(Debug)]
@@ -29,6 +32,7 @@ impl Ctxt {
             prog: Prog {
                 globals: IndexMap::new(),
                 cache: IndexMap::new(),
+                types: None,
             },
             ident_suffix: Vec::new(),
             func: None,
@@ -39,6 +43,43 @@ impl Ctxt {
     /// Returns the currently built program.
     pub fn prog(&self) -> &Prog {
         &self.prog
+    }
+
+    /// Returns the base object of the program.
+    pub fn base(&self) -> Ident {
+        Ident {
+            name: "_T1".to_owned(),
+            kind: IdentKind::Type,
+        }
+    }
+
+    /// Finds the main function of the program.
+    pub fn main(&self) -> Option<Ident> {
+        let base = self.prog.globals.get(&self.base()).unwrap();
+        let Global::Object(base) = base else {
+            unreachable!();
+        };
+        let mut main = None;
+        for (ident, field) in &base.fields {
+            if ident.name == "main" {
+                main = Some(field);
+                break;
+            }
+        }
+        main.cloned()
+    }
+
+    /// Type checks the current program.
+    pub fn type_check(&mut self) -> Result<(), TypeCheckError> {
+        let mut types = Types::new();
+        self.prog.type_check(&self.base(), &mut types)?;
+        self.prog.types = Some(types);
+        Ok(())
+    }
+
+    /// Returns the checked types, if available.
+    pub fn types(&self) -> Option<&Types> {
+        self.prog.types.as_ref()
     }
 
     /// Joins an identifier with the current suffix to generate a unique identifier.

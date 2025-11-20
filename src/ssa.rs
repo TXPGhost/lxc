@@ -8,6 +8,7 @@
 use indexmap::IndexMap;
 
 pub use crate::ast::{Ident, Lit};
+use crate::ssa::type_checking::Types;
 
 /// Lowering the AST into SSA form.
 pub mod lowering;
@@ -29,6 +30,9 @@ pub struct Prog {
 
     /// Cache of statement identifiers to functions and statement indexes.
     pub cache: IndexMap<Ident, (Ident, usize)>,
+
+    /// Type associations,
+    pub types: Option<Types>,
 }
 
 /// A function definition.

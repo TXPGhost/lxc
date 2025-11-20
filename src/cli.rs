@@ -4,15 +4,13 @@ use clap::{Parser, Subcommand};
 use colored::Colorize;
 
 use crate::{
-    ast::{self, Ident, IdentKind},
+    ast,
     lexer::Lexer,
     parser::{self, ParseError},
     ptree::pretty_print::{PrettyPrint, PrettyPrintCtxt},
     ssa::{
-        Global,
         lowering::{Ctxt, Lower},
         pretty_print::PrettyPrintSsa,
-        type_checking::Types,
     },
     style::*,
 };
@@ -97,22 +95,7 @@ pub fn eval(user_input: &str, ctxt: &mut Ctxt) -> EvalResult {
     println!("{}", ctxt.prog().printable_ssa(ctxt.prog()));
 
     // Main function resolution
-    let entry_id = Ident {
-        name: "_T1".to_owned(),
-        kind: IdentKind::Type,
-    };
-    let entry = ctxt.prog().globals.get(&entry_id).unwrap();
-    let Global::Object(entry) = entry else {
-        unreachable!();
-    };
-    let mut main = None;
-    for (ident, field) in &entry.fields {
-        if ident.name == "main" {
-            main = Some(field);
-            break;
-        }
-    }
-
+    let main = ctxt.main();
     match main {
         Some(main) => println!(
             "{} {}",
@@ -123,12 +106,19 @@ pub fn eval(user_input: &str, ctxt: &mut Ctxt) -> EvalResult {
     }
 
     // Type checking
-    let mut types = Types::new();
-    match ctxt.prog().type_check(&entry_id, &mut types) {
+    match ctxt.type_check() {
         Ok(_) => {}
         Err(e) => eprintln!("{} type error: {e:?}", "ERR".color(KWD)),
     }
-    dbg!(&types);
+    dbg!(&ctxt.types());
+
+    println!("\n{}", "-- Single Static Assignment".color(PNC));
+    println!(
+        "{} {}\n",
+        "ENTRY".color(KWD),
+        ssa.printable(PrettyPrintCtxt::default())
+    );
+    println!("{}", ctxt.prog().printable_ssa(ctxt.prog()));
 
     EvalResult::Success
 }
