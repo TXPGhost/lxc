@@ -152,7 +152,7 @@ impl Prog {
                 }
                 let arg_ty = Type::Object(tys);
                 for stmt in &func.stmts {
-                    self.typecheck_stmt(stmt, types)?;
+                    self.type_check(stmt, types)?;
                 }
 
                 let ret_ty = match &func.ret {
@@ -169,6 +169,10 @@ impl Prog {
                     tys.insert(fid.clone(), types.assign(fid, ty));
                 }
                 types.assign(ident, Type::Object(tys))
+            }
+            Global::Stmt(stmt) => {
+                let ty = self.typecheck_stmt(stmt, types)?;
+                types.assign(ident, ty)
             }
         };
         Ok(types.assign(ident, ty))
@@ -196,14 +200,9 @@ impl Prog {
                         return Err(TypeCheckError::IllegalArgumentType);
                     }
                 }
-                Ok(types.assign(&c.ident, *ret_ty))
+                Ok(*ret_ty)
             }
-            Stmt::Decl(decl) => {
-                let ty = self.type_check(&decl.rhs, types)?;
-                Ok(types.assign(&decl.lhs, ty))
-            }
-            Stmt::Const(_) => todo!(),
-            Stmt::Return(r) => self.type_check(r, types),
+            Stmt::Decl(decl) => Ok(self.type_check(decl, types)?),
         }
     }
 

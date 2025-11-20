@@ -1,40 +1,78 @@
-use std::fmt::Display;
+use std::fmt::{self, Display};
 
 use colored::Colorize;
 
 use super::*;
 use crate::style::*;
 
-impl Display for Expr {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+/// Context for pretty printing (e.g. indent level, etc.).
+#[derive(Clone, Copy, Debug, Default)]
+pub struct PrettyPrintCtxt {}
+
+/// Custom trait for pretty printing with context.
+pub trait PrettyPrint {
+    /// Pretty prints the given ptree type with some context.
+    fn pretty_print(&self, f: &mut fmt::Formatter<'_>, ppc: PrettyPrintCtxt) -> fmt::Result;
+
+    /// Wraps this ptree type into a printable struct with pretty print context (via [Display]).
+    fn printable(&self, ctxt: PrettyPrintCtxt) -> Printable<Self>
+    where
+        Self: Sized,
+    {
+        Printable { value: self, ctxt }
+    }
+}
+
+/// Makes a parse tree node printable (via [Display]) by attaching it to pretty print context.
+pub struct Printable<'a, T> {
+    value: &'a T,
+    ctxt: PrettyPrintCtxt,
+}
+
+impl<'a, T: PrettyPrint> Display for Printable<'a, T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.value.pretty_print(f, self.ctxt)
+    }
+}
+
+impl PrettyPrint for Expr {
+    fn pretty_print(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+        ppc: PrettyPrintCtxt,
+    ) -> std::fmt::Result {
         match self {
-            Expr::Ident(i) => write!(f, "{i}"),
+            Expr::Ident(i) => i.pretty_print(f, ppc),
             Expr::String(s) => write!(f, "{}", format!("\"{s}\"").color(LIT)),
             Expr::Integer(n) | Expr::Float(n) => write!(f, "{}", n.color(LIT)),
-            Expr::Infix(i) => write!(f, "{i}"),
-            Expr::Call(c) => write!(f, "{c}"),
-            Expr::Func(u) => write!(f, "{u}"),
-            Expr::Block(b) => write!(f, "{b}"),
-            Expr::Proj(p) => write!(f, "{p}"),
-            Expr::Object(o) => write!(f, "{o}"),
-            Expr::Array(a) => write!(f, "{a}"),
-            Expr::Vector(v) => write!(f, "{v}"),
-            Expr::Paren(p) => write!(f, "{p}"),
-            Expr::Return(r) => write!(f, "{r}"),
-            Expr::If(i) => write!(f, "{i}"),
+            Expr::Infix(i) => i.pretty_print(f, ppc),
+            Expr::Call(c) => c.pretty_print(f, ppc),
+            Expr::Func(u) => u.pretty_print(f, ppc),
+            Expr::Block(b) => b.pretty_print(f, ppc),
+            Expr::Proj(p) => p.pretty_print(f, ppc),
+            Expr::Object(o) => <Object as PrettyPrint>::pretty_print(o, f, ppc),
+            Expr::Array(a) => a.pretty_print(f, ppc),
+            Expr::Vector(v) => v.pretty_print(f, ppc),
+            Expr::Paren(p) => p.pretty_print(f, ppc),
+            Expr::Return(r) => r.pretty_print(f, ppc),
+            Expr::If(i) => i.pretty_print(f, ppc),
         }
     }
 }
 
-impl Display for Array {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl PrettyPrint for Array {
+    fn pretty_print(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+        ppc: PrettyPrintCtxt,
+    ) -> std::fmt::Result {
         write!(
             f,
             "{}{}{}",
             "[".color(OPR),
             self.exprs
                 .iter()
-                .map(Expr::to_string)
+                .map(|expr| expr.printable(ppc).to_string())
                 .reduce(comma_join)
                 .unwrap_or_default(),
             "]".color(OPR),
@@ -42,31 +80,39 @@ impl Display for Array {
     }
 }
 
-impl Display for Vector {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl PrettyPrint for Vector {
+    fn pretty_print(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+        ppc: PrettyPrintCtxt,
+    ) -> std::fmt::Result {
         match &self.count {
             Some(count) => write!(
                 f,
                 "{}{}{}{}",
                 "[".color(OPR),
-                count,
+                count.as_ref().printable(ppc),
                 "]".color(OPR),
-                self.expr
+                self.expr.printable(ppc)
             ),
-            None => write!(f, "{}{}", "[]".color(OPR), self.expr),
+            None => write!(f, "{}{}", "[]".color(OPR), self.expr.printable(ppc)),
         }
     }
 }
 
-impl Display for Object {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl PrettyPrint for Object {
+    fn pretty_print(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+        ppc: PrettyPrintCtxt,
+    ) -> std::fmt::Result {
         write!(
             f,
             "{}{}{}",
             "(".color(OPR),
             self.fields
                 .iter()
-                .map(Field::to_string)
+                .map(|field| field.printable(ppc).to_string())
                 .reduce(comma_join)
                 .unwrap_or_default(),
             ")".color(OPR),
@@ -74,28 +120,51 @@ impl Display for Object {
     }
 }
 
-impl Display for Func {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl PrettyPrint for Func {
+    fn pretty_print(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+        ppc: PrettyPrintCtxt,
+    ) -> std::fmt::Result {
         match (&self.ty, &self.body) {
-            (Some(ty), None) => write!(f, "{} {} {}", self.params, "->".color(PNC), ty),
-            (None, Some(body)) => write!(f, "{} {}", self.params, body),
+            (Some(ty), None) => write!(
+                f,
+                "{} {} {}",
+                self.params.printable(ppc),
+                "->".color(PNC),
+                ty.printable(ppc)
+            ),
+            (None, Some(body)) => {
+                write!(f, "{} {}", self.params.printable(ppc), body.printable(ppc))
+            }
             (Some(ty), Some(body)) => {
-                write!(f, "{} {} {} {}", self.params, "->".color(PNC), ty, body)
+                write!(
+                    f,
+                    "{} {} {} {}",
+                    self.params.printable(ppc),
+                    "->".color(PNC),
+                    ty.printable(ppc),
+                    body.printable(ppc)
+                )
             }
             (None, None) => unreachable!(),
         }
     }
 }
 
-impl Display for Field {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl PrettyPrint for Field {
+    fn pretty_print(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+        ppc: PrettyPrintCtxt,
+    ) -> std::fmt::Result {
         write!(
             f,
             "{}{}{}{}",
-            self.decorator,
+            self.decorator.printable(ppc),
             match (&self.ident.kind, &self.ty) {
                 (IdentKind::Value, Expr::Func(_)) => format!("{}", self.ident.name.color(FUN)),
-                _ => format!("{}", self.ident),
+                _ => self.ident.printable(ppc).to_string(),
             },
             match self.ty {
                 Expr::Func(_) => "",
@@ -103,17 +172,21 @@ impl Display for Field {
                 _ => ": ",
             }
             .color(PNC),
-            self.ty
+            &self.ty.printable(ppc)
         )?;
         if let Some(default_value) = &self.default_value {
-            write!(f, " {} {}", "=".color(PNC), default_value)?;
+            write!(f, " {} {}", "=".color(PNC), default_value.printable(ppc))?;
         }
         Ok(())
     }
 }
 
-impl Display for Decorator {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl PrettyPrint for Decorator {
+    fn pretty_print(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+        _ppc: PrettyPrintCtxt,
+    ) -> std::fmt::Result {
         match self {
             Decorator::Default => write!(f, ""),
             Decorator::Mutable => write!(f, "{}", "*".color(PNC)),
@@ -121,56 +194,96 @@ impl Display for Decorator {
     }
 }
 
-impl Display for Method {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl PrettyPrint for Method {
+    fn pretty_print(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+        ppc: PrettyPrintCtxt,
+    ) -> std::fmt::Result {
         write!(
             f,
             "{}{}",
             if self.is_mut { "*" } else { "" }.color(PNC),
-            self.func
+            &self.func.printable(ppc)
         )
     }
 }
 
-impl Display for Param {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl PrettyPrint for Param {
+    fn pretty_print(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+        ppc: PrettyPrintCtxt,
+    ) -> std::fmt::Result {
         write!(
             f,
             "{}{}",
             if self.is_mut { "*" } else { "" }.color(PNC),
-            self.ident
+            self.ident.printable(ppc)
         )
     }
 }
 
-impl Display for Proj {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl PrettyPrint for Proj {
+    fn pretty_print(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+        ppc: PrettyPrintCtxt,
+    ) -> std::fmt::Result {
         if self.ident.kind == IdentKind::Value {
-            write!(f, "{}.{}", self.object, self.ident.name.color(MBR))
+            write!(
+                f,
+                "{}.{}",
+                self.object.printable(ppc),
+                self.ident.name.color(MBR)
+            )
         } else {
-            write!(f, "{}.{}", self.object, self.ident)
+            write!(
+                f,
+                "{}.{}",
+                self.object.printable(ppc),
+                self.ident.printable(ppc)
+            )
         }
     }
 }
 
-impl Display for Infix {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl PrettyPrint for Infix {
+    fn pretty_print(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+        ppc: PrettyPrintCtxt,
+    ) -> std::fmt::Result {
         let lhs_str = if let Expr::Infix(infix) = &*self.lhs {
-            format!("{}{}{}", "(".color(PNC), infix, ")".color(PNC))
+            format!(
+                "{}{}{}",
+                "(".color(PNC),
+                infix.printable(ppc),
+                ")".color(PNC)
+            )
         } else {
-            self.lhs.to_string()
+            self.lhs.printable(ppc).to_string()
         };
         let rhs_str = if let Expr::Infix(infix) = &*self.rhs {
-            format!("{}{}{}", "(".color(PNC), infix, ")".color(PNC))
+            format!(
+                "{}{}{}",
+                "(".color(PNC),
+                infix.printable(ppc),
+                ")".color(PNC)
+            )
         } else {
-            self.rhs.to_string()
+            self.rhs.printable(ppc).to_string()
         };
-        write!(f, "{} {} {}", lhs_str, self.kind, rhs_str)
+        write!(f, "{} {} {}", lhs_str, &self.kind.printable(ppc), rhs_str)
     }
 }
 
-impl Display for InfixKind {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl PrettyPrint for InfixKind {
+    fn pretty_print(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+        _ppc: PrettyPrintCtxt,
+    ) -> std::fmt::Result {
         match self {
             InfixKind::Add => write!(f, "{}", "+".color(OPR)),
             InfixKind::Sub => write!(f, "{}", "-".color(OPR)),
@@ -182,16 +295,20 @@ impl Display for InfixKind {
     }
 }
 
-impl Display for Constructor {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl PrettyPrint for Constructor {
+    fn pretty_print(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+        ppc: PrettyPrintCtxt,
+    ) -> std::fmt::Result {
         write!(
             f,
             "{}{}{}{}",
-            self.ty,
+            self.ty.printable(ppc),
             "(".color(OPR),
             self.args
                 .iter()
-                .map(Expr::to_string)
+                .map(|arg| arg.printable(ppc).to_string())
                 .reduce(comma_join)
                 .unwrap_or_default(),
             ")".color(OPR),
@@ -199,8 +316,12 @@ impl Display for Constructor {
     }
 }
 
-impl Display for Call {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl PrettyPrint for Call {
+    fn pretty_print(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+        ppc: PrettyPrintCtxt,
+    ) -> std::fmt::Result {
         let func_str = if let Expr::Ident(Ident {
             name,
             kind: IdentKind::Value,
@@ -216,9 +337,9 @@ impl Display for Call {
                 },
         }) = &*self.func
         {
-            format!("{}.{}", object, name.color(FUN))
+            format!("{}.{}", object.printable(ppc), name.color(FUN))
         } else {
-            self.func.to_string()
+            self.func.printable(ppc).to_string()
         };
         write!(
             f,
@@ -227,7 +348,7 @@ impl Display for Call {
             "(".color(OPR),
             self.args
                 .iter()
-                .map(Arg::to_string)
+                .map(|arg| arg.printable(ppc).to_string())
                 .reduce(comma_join)
                 .unwrap_or_default(),
             ")".color(OPR)
@@ -235,23 +356,31 @@ impl Display for Call {
     }
 }
 
-impl Display for Arg {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl PrettyPrint for Arg {
+    fn pretty_print(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+        ppc: PrettyPrintCtxt,
+    ) -> std::fmt::Result {
         write!(
             f,
             "{}{}{}",
             self.ident
                 .as_ref()
-                .map(|i| format!("{i}: "))
+                .map(|i| format!("{}: ", i.printable(ppc)))
                 .unwrap_or_default(),
             if self.is_mut { "*" } else { "" }.color(PNC),
-            self.expr
+            &self.expr.printable(ppc)
         )
     }
 }
 
-impl Display for Block {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl PrettyPrint for Block {
+    fn pretty_print(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+        ppc: PrettyPrintCtxt,
+    ) -> std::fmt::Result {
         // TODO
         write!(
             f,
@@ -259,7 +388,7 @@ impl Display for Block {
             "{".color(OPR),
             self.stmts
                 .iter()
-                .map(Stmt::to_string)
+                .map(|stmt| stmt.printable(ppc).to_string())
                 .reduce(semicolon_join)
                 .unwrap_or_default(),
             "}".color(OPR)
@@ -267,18 +396,38 @@ impl Display for Block {
     }
 }
 
-impl Display for Stmt {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl PrettyPrint for Stmt {
+    fn pretty_print(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+        ppc: PrettyPrintCtxt,
+    ) -> std::fmt::Result {
         match self {
-            Stmt::Decl(ident, expr) => write!(f, "{} {} {}", ident, "=".color(PNC), expr),
-            Stmt::Assn(ident, expr) => write!(f, "{} {} {}", ident, ":=".color(OPR), expr),
-            Stmt::Expr(expr) => write!(f, "{expr}"),
+            Stmt::Decl(ident, expr) => write!(
+                f,
+                "{} {} {}",
+                ident.printable(ppc),
+                "=".color(PNC),
+                expr.printable(ppc)
+            ),
+            Stmt::Assn(ident, expr) => write!(
+                f,
+                "{} {} {}",
+                ident.printable(ppc),
+                ":=".color(OPR),
+                expr.printable(ppc)
+            ),
+            Stmt::Expr(expr) => write!(f, "{}", expr.printable(ppc)),
         }
     }
 }
 
-impl Display for Ident {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl PrettyPrint for Ident {
+    fn pretty_print(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+        _ppc: PrettyPrintCtxt,
+    ) -> std::fmt::Result {
         match self.kind {
             IdentKind::BuiltinValue => {
                 write!(f, "{}", self.name.color(KWD))
@@ -293,40 +442,58 @@ impl Display for Ident {
     }
 }
 
-impl Display for Paren {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}{}{}", "(".color(PNC), self.expr, ")".color(PNC))
+impl PrettyPrint for Paren {
+    fn pretty_print(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+        ppc: PrettyPrintCtxt,
+    ) -> std::fmt::Result {
+        write!(
+            f,
+            "{}{}{}",
+            "(".color(PNC),
+            self.expr.printable(ppc),
+            ")".color(PNC)
+        )
     }
 }
 
-impl Display for Return {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} {}", "$".color(KWD).bold(), self.expr)
+impl PrettyPrint for Return {
+    fn pretty_print(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+        ppc: PrettyPrintCtxt,
+    ) -> std::fmt::Result {
+        write!(f, "{} {}", "$".color(KWD).bold(), self.expr.printable(ppc))
     }
 }
 
-impl Display for If {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl PrettyPrint for If {
+    fn pretty_print(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+        ppc: PrettyPrintCtxt,
+    ) -> std::fmt::Result {
         match &self.else_body {
             Some(else_body) => write!(
                 f,
                 "{} {}{}{} {} {} {}",
                 "?".color(KWD).bold(),
                 "(".color(PNC),
-                self.cond,
+                self.cond.printable(ppc),
                 ")".color(PNC),
-                self.if_body,
+                self.if_body.printable(ppc),
                 ":".color(KWD).bold(),
-                else_body,
+                else_body.as_ref().printable(ppc),
             ),
             None => write!(
                 f,
                 "{} {}{}{} {}",
                 "?".color(KWD).bold(),
                 "(".color(PNC),
-                self.cond,
+                self.cond.printable(ppc),
                 ")".color(PNC),
-                self.if_body
+                self.if_body.printable(ppc)
             ),
         }
     }

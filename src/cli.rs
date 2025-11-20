@@ -7,9 +7,11 @@ use crate::{
     ast::{self, Ident, IdentKind},
     lexer::Lexer,
     parser::{self, ParseError},
+    ptree::pretty_print::{PrettyPrint, PrettyPrintCtxt},
     ssa::{
         Global,
         lowering::{Ctxt, Lower},
+        pretty_print::PrettyPrintSsa,
         type_checking::Types,
     },
     style::*,
@@ -65,7 +67,11 @@ pub fn eval(user_input: &str, ctxt: &mut Ctxt) -> EvalResult {
     let program = match parser::parse_program(&mut lexer) {
         Ok(object) => {
             println!("\n{}", "-- Abstract Syntax Tree".color(PNC));
-            println!("{} {object}", "AST".color(KWD));
+            println!(
+                "{} {}",
+                "AST".color(KWD),
+                object.printable(PrettyPrintCtxt::default())
+            );
             object
         }
         Err(ParseError::OutOfTokens) => {
@@ -83,8 +89,12 @@ pub fn eval(user_input: &str, ctxt: &mut Ctxt) -> EvalResult {
     // SSA lowering
     let ssa = ast.lower(ctxt).unwrap();
     println!("\n{}", "-- Single Static Assignment".color(PNC));
-    println!("{} {}\n", "ENTRY".color(KWD), ssa);
-    println!("{}", ctxt.prog());
+    println!(
+        "{} {}\n",
+        "ENTRY".color(KWD),
+        ssa.printable(PrettyPrintCtxt::default())
+    );
+    println!("{}", ctxt.prog().printable_ssa(ctxt.prog()));
 
     // Main function resolution
     let entry_id = Ident {

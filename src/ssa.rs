@@ -37,8 +37,8 @@ pub struct Func {
     /// The list of function parameters.
     pub params: Vec<Param>,
 
-    /// The list of function body statements.
-    pub stmts: Vec<Stmt>,
+    /// The list of function body statements (points into global definitions).
+    pub stmts: Vec<Ident>,
 
     /// The optional function return identifier.
     pub ret: Option<Ident>,
@@ -61,46 +61,17 @@ pub enum Stmt {
     Call(Call),
 
     /// A statement of the form `ident = ident`, assigning an identified value.
-    Decl(Decl),
-
-    /// A statement of the form `ident = LIT`, assigning a constant value.
-    Const(Const),
-
-    /// A return statement of the form `ident`.
-    Return(Ident),
+    Decl(Ident),
 }
 
 /// A function call statement.
 #[derive(Debug)]
 pub struct Call {
-    /// The resulting value identifier.
-    pub ident: Ident,
-
     /// The function to call's identifier.
     pub func: Ident,
 
     /// The list of argument identifiers.
     pub args: Vec<Ident>,
-}
-
-/// A declaration statement.
-#[derive(Debug)]
-pub struct Decl {
-    /// The resulting identifier.
-    pub lhs: Ident,
-
-    /// The identifier being assigned to.
-    pub rhs: Ident,
-}
-
-/// A constant value statement.
-#[derive(Debug)]
-pub struct Const {
-    /// The resulting value identifier.
-    pub ident: Ident,
-
-    /// The constant value literal.
-    pub lit: Lit,
 }
 
 /// A global definition.
@@ -114,6 +85,9 @@ pub enum Global {
 
     /// An object definition.
     Object(Object),
+
+    /// A statement.
+    Stmt(Stmt),
 }
 
 /// An object definition.

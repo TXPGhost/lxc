@@ -97,35 +97,36 @@ impl Ctxt {
 
     /// Pushes a declaration statement to the current function.
     fn push_decl(&mut self, lhs: Ident, rhs: Ident) {
+        self.prog
+            .globals
+            .insert(lhs.clone(), Global::Stmt(Stmt::Decl(rhs)));
         self.func
             .as_mut()
             .expect("called push_decl without active func")
             .stmts
-            .push(Stmt::Decl(Decl { lhs, rhs }))
-    }
-
-    /// Pushes a return statement to the current function.
-    fn push_return(&mut self, id: Ident) {
-        self.func
-            .as_mut()
-            .expect("called push_return without active func")
-            .stmts
-            .push(Stmt::Return(id))
+            .push(lhs)
     }
 
     /// Pushes a function call statement to the currently active function, returns an identifier.
     fn push_call(&mut self, func: Ident, args: Vec<Ident>) -> Ident {
         let ident = self.gen_vid();
+        self.prog
+            .globals
+            .insert(ident.clone(), Global::Stmt(Stmt::Call(Call { func, args })));
         self.func
             .as_mut()
             .expect("called push_call without active func")
             .stmts
-            .push(Stmt::Call(Call {
-                ident: ident.clone(),
-                func,
-                args,
-            }));
+            .push(ident.clone());
         ident
+    }
+
+    /// Pushes a return statement to the currently active function.
+    fn push_return(&mut self, ret: Ident) {
+        self.func
+            .as_mut()
+            .expect("called push_call without active func")
+            .ret = Some(ret);
     }
 
     // Begins a new function lowering.
@@ -273,8 +274,16 @@ impl Lower for ast::Func {
                 .push(Param { ident: vid, ty })
         }
         if let Some(body) = self.body {
-            for stmt in body.stmts {
-                stmt.lower(ctxt)?;
+            let mut iter = body.stmts.into_iter().peekable();
+            loop {
+                let Some(stmt) = iter.next() else { break };
+                match stmt {
+                    ast::Stmt::Return(ret) if iter.peek().is_none() => {
+                        let ret = ret.lower(ctxt)?;
+                        ctxt.push_return(ret)
+                    }
+                    _ => stmt.lower(ctxt)?,
+                }
             }
         }
         Ok(ctxt.end_func())
@@ -296,9 +305,10 @@ impl Lower for ast::Stmt {
                 dbg!(a);
                 todo!();
             }
-            ast::Stmt::Return(expr) => {
-                let ident = expr.lower(ctxt)?;
-                ctxt.push_return(ident);
+            ast::Stmt::Return(e) => {
+                let ident = ctxt.gen_vid();
+                let rhs = e.lower(ctxt)?;
+                ctxt.push_decl(ident, rhs);
                 Ok(())
             }
         }
