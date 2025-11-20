@@ -68,6 +68,22 @@ impl Ident {
             kind: IdentKind::Void,
         }
     }
+
+    /// Generates an instance of a value identifier.
+    pub fn vid(name: impl Into<String>) -> Self {
+        Self {
+            name: name.into(),
+            kind: IdentKind::Value,
+        }
+    }
+
+    /// Generates an instance of a type identifier.
+    pub fn tid(name: impl Into<String>) -> Self {
+        Self {
+            name: name.into(),
+            kind: IdentKind::Type,
+        }
+    }
 }
 
 /// An identifier kind, based on capitalization of the first letter and/or a leading underscore.

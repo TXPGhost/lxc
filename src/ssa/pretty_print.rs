@@ -87,6 +87,8 @@ impl PrettyPrintSsa for Lit {
             Lit::String(s) => write!(f, "{}", format!("\"{s}\"").color(LIT)),
             Lit::Integer(i) => write!(f, "{}", i.color(LIT)),
             Lit::Float(n) => write!(f, "{}", n.color(LIT)),
+            Lit::I64T => write!(f, "{}", "I64".color(KWD)),
+            Lit::F64T => write!(f, "{}", "F64".color(KWD)),
         }
     }
 }

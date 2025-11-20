@@ -22,6 +22,9 @@ pub mod lookup;
 /// Type checking pass.
 pub mod type_checking;
 
+/// Prelude definitions.
+pub mod prelude;
+
 /// A program in its entirety.
 #[derive(Debug)]
 pub struct Prog {
@@ -33,6 +36,9 @@ pub struct Prog {
 
     /// Type associations,
     pub types: Option<Types>,
+
+    /// The prelude of definitions.
+    pub prelude: IndexMap<Ident, Global>,
 }
 
 /// A function definition.
@@ -91,5 +97,5 @@ pub enum Global {
 #[derive(Debug)]
 pub struct Object {
     /// The list of object fields (also global identifiers).
-    pub fields: Vec<(Ident, Ident)>,
+    pub fields: IndexMap<Ident, Ident>,
 }

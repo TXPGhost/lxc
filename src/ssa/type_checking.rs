@@ -42,6 +42,8 @@ impl Type {
             (Type::F64, Type::F64) => true,
             (Type::ConstI64(_), Type::I64) => true,
             (Type::ConstF64(_), Type::F64) => true,
+            (Type::ConstI64(lhs), Type::ConstI64(rhs)) => lhs == rhs,
+            (Type::ConstF64(lhs), Type::ConstF64(rhs)) => lhs == rhs,
             (Type::Object(lhs), Type::Object(rhs)) => {
                 for (id, lhs_ty) in lhs {
                     match rhs.get(id) {
@@ -121,6 +123,10 @@ pub enum TypeCheckError {
     #[error("failed to parse float")]
     ParseFloatError(#[from] ParseFloatError),
 
+    /// An illegal float value was provided.
+    #[error("illegal float (NaN or infinity)")]
+    IllegalF64(f64),
+
     /// An error that occurs during identifier lookup.
     #[error("identifier lookup failed")]
     LookupError(#[from] LookupError),
@@ -139,7 +145,13 @@ pub enum TypeCheckError {
 
     /// An illegal function argument type was provided.
     #[error("illegal argument type")]
-    IllegalArgumentType,
+    IllegalArgumentType {
+        /// The expected type.
+        expected: Box<Type>,
+
+        /// The found type.
+        found: Box<Type>,
+    },
 }
 
 impl Prog {
@@ -205,7 +217,10 @@ impl Prog {
                         return Err(TypeCheckError::TooManyFunctionArguments);
                     }
                     if !ty.subtype_of(&arg_ty[i]) {
-                        return Err(TypeCheckError::IllegalArgumentType);
+                        return Err(TypeCheckError::IllegalArgumentType {
+                            expected: Box::new(arg_ty[i].clone()),
+                            found: Box::new(ty),
+                        });
                     }
                 }
                 if c.args.len() < arg_ty.len() {
@@ -247,8 +262,7 @@ impl Prog {
         let lhs = self.type_check(lhs, types)?;
         let rhs = self.type_check(rhs, types)?;
         match (lhs, rhs) {
-            (Type::I64, Type::I64) => Ok(Type::I64),
-            (Type::F64, Type::F64) => Ok(Type::F64),
+            // Constant propagation
             (Type::ConstI64(lhs), Type::ConstI64(rhs)) => match op {
                 "add" => Ok(Type::ConstI64(lhs + rhs)),
                 "sub" => Ok(Type::ConstI64(lhs - rhs)),
@@ -263,6 +277,10 @@ impl Prog {
                 "div" => Ok(Type::ConstF64(lhs / rhs)),
                 _ => unimplemented!(),
             },
+
+            // Numeric types where at least one value is unknown
+            (Type::I64 | Type::ConstI64(_), Type::I64 | Type::ConstI64(_)) => Ok(Type::I64),
+            (Type::F64 | Type::ConstF64(_), Type::F64 | Type::ConstF64(_)) => Ok(Type::F64),
             _ => unimplemented!(),
         }
     }
@@ -276,8 +294,11 @@ fn typecheck_lit(lit: &Lit) -> Result<Type, TypeCheckError> {
             Err(e) => Err(TypeCheckError::ParseIntError(e)),
         },
         Lit::Float(f) => match f.parse::<f64>() {
-            Ok(f) => Ok(Type::ConstF64(f)),
+            Ok(f) if f.is_finite() => Ok(Type::ConstF64(f)),
+            Ok(f) => Err(TypeCheckError::IllegalF64(f)),
             Err(e) => Err(TypeCheckError::ParseFloatError(e)),
         },
+        Lit::I64T => Ok(Type::I64),
+        Lit::F64T => Ok(Type::F64),
     }
 }

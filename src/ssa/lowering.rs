@@ -3,7 +3,7 @@ use indexmap::IndexMap;
 use super::*;
 use crate::{
     ast::{self, IdentKind},
-    ssa::type_checking::TypeCheckError,
+    ssa::{prelude::prelude, type_checking::TypeCheckError},
 };
 
 /// Context for the lowering process.
@@ -33,6 +33,7 @@ impl Ctxt {
                 globals: IndexMap::new(),
                 cache: IndexMap::new(),
                 types: None,
+                prelude: prelude(),
             },
             ident_suffix: Vec::new(),
             func: None,
@@ -45,20 +46,9 @@ impl Ctxt {
         &self.prog
     }
 
-    /// Returns the base object of the program.
-    pub fn base(&self) -> Ident {
-        Ident {
-            name: "_T1".to_owned(),
-            kind: IdentKind::Type,
-        }
-    }
-
     /// Finds the main function of the program.
     pub fn main(&self) -> Option<Ident> {
-        let base = self.prog.globals.get(&self.base()).unwrap();
-        let Global::Object(base) = base else {
-            unreachable!();
-        };
+        let base = self.prog.base();
         let mut main = None;
         for (ident, field) in &base.fields {
             if ident.name == "main" {
@@ -72,7 +62,7 @@ impl Ctxt {
     /// Type checks the current program.
     pub fn type_check(&mut self) -> Result<(), TypeCheckError> {
         let mut types = Types::new();
-        self.prog.type_check(&self.base(), &mut types)?;
+        self.prog.type_check(&self.prog.base_id(), &mut types)?;
         self.prog.types = Some(types);
         Ok(())
     }
@@ -280,7 +270,11 @@ impl Lower for ast::Object {
             .into_iter()
             .map(|field| field.lower(ctxt))
             .collect();
-        let fields = fields?;
+        let fields_vec = fields?;
+        let mut fields = IndexMap::new();
+        for (lhs, rhs) in fields_vec {
+            fields.insert(lhs, rhs);
+        }
         ctxt.prog
             .globals
             .insert(tid.clone(), Global::Object(Object { fields }));
