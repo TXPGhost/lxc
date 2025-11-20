@@ -21,8 +21,14 @@ pub enum Type {
     /// 64-bit signed integer constant
     ConstI64(i64),
 
-    /// 64-bit floating point constant
+    /// 64-bit floating point constant (never NaN or infinity)
     ConstF64(f64),
+
+    /// Boolean
+    Bool,
+
+    /// Cosntant boolean
+    ConstBool(bool),
 
     /// Object type
     Object(IndexMap<Ident, Type>),
@@ -268,6 +274,8 @@ impl Prog {
                 "sub" => Ok(Type::ConstI64(lhs - rhs)),
                 "mul" => Ok(Type::ConstI64(lhs * rhs)),
                 "div" => Ok(Type::ConstI64(lhs / rhs)),
+                "eq" => Ok(Type::ConstBool(lhs == rhs)),
+                "ne" => Ok(Type::ConstBool(lhs != rhs)),
                 _ => unimplemented!(),
             },
             (Type::ConstF64(lhs), Type::ConstF64(rhs)) => match op {
@@ -275,12 +283,23 @@ impl Prog {
                 "sub" => Ok(Type::ConstF64(lhs - rhs)),
                 "mul" => Ok(Type::ConstF64(lhs * rhs)),
                 "div" => Ok(Type::ConstF64(lhs / rhs)),
+                "eq" => Ok(Type::ConstBool(lhs == rhs)),
+                "ne" => Ok(Type::ConstBool(lhs != rhs)),
                 _ => unimplemented!(),
             },
 
-            // Numeric types where at least one value is unknown
-            (Type::I64 | Type::ConstI64(_), Type::I64 | Type::ConstI64(_)) => Ok(Type::I64),
-            (Type::F64 | Type::ConstF64(_), Type::F64 | Type::ConstF64(_)) => Ok(Type::F64),
+            // Builtin types where at least one value is unknown
+            (Type::I64 | Type::ConstI64(_), Type::I64 | Type::ConstI64(_)) => match op {
+                "add" | "sub" | "mul" | "div" => Ok(Type::I64),
+                "eq" | "ne" => Ok(Type::Bool),
+                _ => unimplemented!(),
+            },
+            (Type::F64 | Type::ConstF64(_), Type::F64 | Type::ConstF64(_)) => match op {
+                "add" | "sub" | "mul" | "div" => Ok(Type::F64),
+                "eq" | "ne" => Ok(Type::Bool),
+                _ => unimplemented!(),
+            },
+            (Type::Bool | Type::ConstBool(_), Type::Bool | Type::ConstBool(_)) => Ok(Type::Bool),
             _ => unimplemented!(),
         }
     }
@@ -298,7 +317,10 @@ fn typecheck_lit(lit: &Lit) -> Result<Type, TypeCheckError> {
             Ok(f) => Err(TypeCheckError::IllegalF64(f)),
             Err(e) => Err(TypeCheckError::ParseFloatError(e)),
         },
+        Lit::True => Ok(Type::ConstBool(true)),
+        Lit::False => Ok(Type::ConstBool(false)),
         Lit::I64T => Ok(Type::I64),
         Lit::F64T => Ok(Type::F64),
+        Lit::BoolT => Ok(Type::Bool),
     }
 }

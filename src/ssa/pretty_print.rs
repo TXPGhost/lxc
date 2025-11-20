@@ -87,8 +87,11 @@ impl PrettyPrintSsa for Lit {
             Lit::String(s) => write!(f, "{}", format!("\"{s}\"").color(LIT)),
             Lit::Integer(i) => write!(f, "{}", i.color(LIT)),
             Lit::Float(n) => write!(f, "{}", n.color(LIT)),
+            Lit::True => write!(f, "{}", "true".color(KWD)),
+            Lit::False => write!(f, "{}", "false".color(KWD)),
             Lit::I64T => write!(f, "{}", "I64".color(KWD)),
             Lit::F64T => write!(f, "{}", "F64".color(KWD)),
+            Lit::BoolT => write!(f, "{}", "Bool".color(KWD)),
         }
     }
 }
@@ -224,8 +227,10 @@ impl Display for Type {
         match self {
             Type::I64 => write!(f, "I64"),
             Type::F64 => write!(f, "F64"),
+            Type::Bool => write!(f, "Bool"),
             Type::ConstI64(i) => write!(f, "I64({i})"),
             Type::ConstF64(n) => write!(f, "F64({n})"),
+            Type::ConstBool(b) => write!(f, "Bool({b})"),
             Type::Object(fields) => write!(
                 f,
                 "({})",

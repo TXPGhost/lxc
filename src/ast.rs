@@ -22,8 +22,11 @@ pub enum Lit {
     String(String),
     Integer(String),
     Float(String),
+    True,
+    False,
     I64T,
     F64T,
+    BoolT,
 }
 
 #[derive(Debug)]
