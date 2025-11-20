@@ -15,11 +15,20 @@ pub mod lowering;
 /// Pretty printing of SSA form.
 pub mod pretty_print;
 
+/// Semantic identifier lookup.
+pub mod lookup;
+
+/// Type checking pass.
+pub mod type_checking;
+
 /// A program in its entirety.
 #[derive(Debug)]
 pub struct Prog {
     /// A series of global definitions.
     pub globals: IndexMap<Ident, Global>,
+
+    /// Cache of statement identifiers to functions and statement indexes.
+    pub cache: IndexMap<Ident, (Ident, usize)>,
 }
 
 /// A function definition.

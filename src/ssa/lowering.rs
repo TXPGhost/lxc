@@ -28,6 +28,7 @@ impl Ctxt {
         Self {
             prog: Prog {
                 globals: IndexMap::new(),
+                cache: IndexMap::new(),
             },
             ident_suffix: Vec::new(),
             func: None,

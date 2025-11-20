@@ -10,6 +10,7 @@ use crate::{
     ssa::{
         Global,
         lowering::{Ctxt, Lower},
+        type_checking::Types,
     },
     style::*,
 };
@@ -86,14 +87,11 @@ pub fn eval(user_input: &str, ctxt: &mut Ctxt) -> EvalResult {
     println!("{}", ctxt.prog());
 
     // Main function resolution
-    let entry = ctxt
-        .prog()
-        .globals
-        .get(&Ident {
-            name: "_T1".to_owned(),
-            kind: IdentKind::Type,
-        })
-        .unwrap();
+    let entry_id = Ident {
+        name: "_T1".to_owned(),
+        kind: IdentKind::Type,
+    };
+    let entry = ctxt.prog().globals.get(&entry_id).unwrap();
     let Global::Object(entry) = entry else {
         unreachable!();
     };
@@ -113,6 +111,14 @@ pub fn eval(user_input: &str, ctxt: &mut Ctxt) -> EvalResult {
         ),
         None => println!("{}", "-- Did not find main function".color(PNC)),
     }
+
+    // Type checking
+    let mut types = Types::new();
+    match ctxt.prog().type_check(&entry_id, &mut types) {
+        Ok(_) => {}
+        Err(e) => eprintln!("{} type error: {e:?}", "ERR".color(KWD)),
+    }
+    dbg!(&types);
 
     EvalResult::Success
 }
