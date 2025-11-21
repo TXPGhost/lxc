@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use indexmap::IndexMap;
 
 use super::*;
@@ -8,7 +10,7 @@ use crate::{
 
 /// Context for the lowering process.
 #[derive(Debug)]
-pub struct Ctxt {
+pub struct LoweringCtxt {
     /// The program being built up.
     prog: Prog,
 
@@ -20,9 +22,12 @@ pub struct Ctxt {
 
     /// The current identifier generator index.
     ident_idx: usize,
+
+    /// Mapping of established constant literals to avoid duplication.
+    lit_map: HashMap<Lit, Ident>,
 }
 
-impl Ctxt {
+impl LoweringCtxt {
     /// Name-mangling separator for identifiers.
     pub const MANGLE: char = '@';
 
@@ -38,12 +43,18 @@ impl Ctxt {
             ident_suffix: Vec::new(),
             func: None,
             ident_idx: 0,
+            lit_map: HashMap::new(),
         }
     }
 
     /// Returns the currently built program.
     pub fn prog(&self) -> &Prog {
         &self.prog
+    }
+
+    /// Returns the currently built program mutably.
+    pub fn prog_mut(&mut self) -> &mut Prog {
+        &mut self.prog
     }
 
     /// Type checks the current program.
@@ -59,8 +70,13 @@ impl Ctxt {
         self.prog.types.as_ref()
     }
 
+    /// Returns the checked types mutably, if available.
+    pub fn types_mut(&mut self) -> Option<&mut Types> {
+        self.prog.types.as_mut()
+    }
+
     /// Joins an identifier with the current suffix to generate a unique identifier.
-    fn make_unique(&mut self, ident: Ident) -> Ident {
+    pub fn make_unique(&mut self, ident: Ident) -> Ident {
         if matches!(ident.kind, IdentKind::Void) {
             return self.gen_vid();
         }
@@ -79,42 +95,50 @@ impl Ctxt {
     }
 
     /// Generates a unique value identifier
-    fn gen_vid(&mut self) -> Ident {
+    pub fn gen_vid(&mut self) -> Ident {
         self.ident_idx += 1;
-        self.make_unique(Ident {
+        Ident {
             name: format!("_v{}", self.ident_idx),
             kind: ast::IdentKind::Value,
-        })
+        }
     }
 
     /// Generates a unique type identifier
-    fn gen_tid(&mut self) -> Ident {
+    pub fn gen_tid(&mut self) -> Ident {
         self.ident_idx += 1;
-        self.make_unique(Ident {
+        Ident {
             name: format!("_T{}", self.ident_idx),
             kind: ast::IdentKind::Type,
-        })
+        }
     }
 
     /// Pushes an identifier suffix to the current context.
-    fn push_suffix(&mut self, ident: Ident) {
+    pub fn push_suffix(&mut self, ident: Ident) {
         self.ident_suffix.push(ident.name);
     }
 
     /// Pops an identifier sufix from the current context, returning [true] if one was popped.
-    fn pop_suffix(&mut self) -> bool {
+    pub fn pop_suffix(&mut self) -> bool {
         self.ident_suffix.pop().is_some()
     }
 
     /// Pushes a constant literal to the global context, returns an identifier.
-    fn push_const(&mut self, lit: Lit) -> Ident {
-        let ident = self.gen_vid();
-        self.prog.globals.insert(ident.clone(), Global::Lit(lit));
-        ident
+    pub fn push_const(&mut self, lit: Lit) -> Ident {
+        match self.lit_map.get(&lit) {
+            Some(ident) => ident.clone(),
+            None => {
+                let ident = self.gen_vid();
+                self.prog
+                    .globals
+                    .insert(ident.clone(), Global::Lit(lit.clone()));
+                self.lit_map.insert(lit, ident.clone());
+                ident
+            }
+        }
     }
 
     /// Pushes a declaration statement to the current function.
-    fn push_decl(&mut self, lhs: Ident, rhs: Ident) {
+    pub fn push_decl(&mut self, lhs: Ident, rhs: Ident) {
         self.prog
             .globals
             .insert(lhs.clone(), Global::Stmt(Stmt::Decl(rhs)));
@@ -126,7 +150,7 @@ impl Ctxt {
     }
 
     /// Pushes a function call statement to the currently active function, returns an identifier.
-    fn push_call(&mut self, func: Ident, args: Vec<Ident>) -> Ident {
+    pub fn push_call(&mut self, func: Ident, args: Vec<Ident>) -> Ident {
         let ident = self.gen_vid();
         self.prog
             .globals
@@ -140,7 +164,7 @@ impl Ctxt {
     }
 
     /// Pushes a return statement to the currently active function.
-    fn push_return(&mut self, ret: Ident) {
+    pub fn push_return(&mut self, ret: Ident) {
         self.func
             .as_mut()
             .expect("called push_call without active func")
@@ -148,7 +172,7 @@ impl Ctxt {
     }
 
     // Begins a new function lowering.
-    fn begin_func(&mut self) {
+    pub fn begin_func(&mut self) {
         if self.func.is_some() {
             panic!("called begin_func with active func");
         }
@@ -160,7 +184,7 @@ impl Ctxt {
     }
 
     // Pushes the currently active function to the global context.
-    fn end_func(&mut self) -> Ident {
+    pub fn end_func(&mut self) -> Ident {
         let vid = self.gen_vid();
         self.prog.globals.insert(
             vid.clone(),
@@ -174,7 +198,7 @@ impl Ctxt {
     }
 }
 
-impl Default for Ctxt {
+impl Default for LoweringCtxt {
     fn default() -> Self {
         Self::new()
     }
@@ -196,13 +220,13 @@ pub trait Lower {
     type Ssa;
 
     /// Attempts to lower `self` into its SSA form.
-    fn lower(self, ctxt: &mut Ctxt) -> Result<Self::Ssa, LoweringError>;
+    fn lower(self, ctxt: &mut LoweringCtxt) -> Result<Self::Ssa, LoweringError>;
 }
 
 impl Lower for ast::Expr {
     type Ssa = Ident;
 
-    fn lower(self, ctxt: &mut Ctxt) -> Result<Self::Ssa, LoweringError> {
+    fn lower(self, ctxt: &mut LoweringCtxt) -> Result<Self::Ssa, LoweringError> {
         match self {
             ast::Expr::Ident(ident) => Ok(ctxt.make_unique(ident)),
             ast::Expr::Lit(l) => l.lower(ctxt),
@@ -221,7 +245,7 @@ impl Lower for ast::Expr {
 impl Lower for ast::Lit {
     type Ssa = Ident;
 
-    fn lower(self, ctxt: &mut Ctxt) -> Result<Self::Ssa, LoweringError> {
+    fn lower(self, ctxt: &mut LoweringCtxt) -> Result<Self::Ssa, LoweringError> {
         Ok(ctxt.push_const(self))
     }
 }
@@ -229,7 +253,7 @@ impl Lower for ast::Lit {
 impl Lower for ast::Call {
     type Ssa = Ident;
 
-    fn lower(self, ctxt: &mut Ctxt) -> Result<Self::Ssa, LoweringError> {
+    fn lower(self, ctxt: &mut LoweringCtxt) -> Result<Self::Ssa, LoweringError> {
         let func = self.func.lower(ctxt)?;
         let args: Result<Vec<Ident>, LoweringError> =
             self.args.into_iter().map(|arg| arg.lower(ctxt)).collect();
@@ -241,7 +265,7 @@ impl Lower for ast::Call {
 impl Lower for ast::Arg {
     type Ssa = Ident;
 
-    fn lower(self, ctxt: &mut Ctxt) -> Result<Self::Ssa, LoweringError> {
+    fn lower(self, ctxt: &mut LoweringCtxt) -> Result<Self::Ssa, LoweringError> {
         let vid = self.expr.lower(ctxt)?;
         Ok(vid)
     }
@@ -250,7 +274,7 @@ impl Lower for ast::Arg {
 impl Lower for ast::Object {
     type Ssa = Ident;
 
-    fn lower(self, ctxt: &mut Ctxt) -> Result<Self::Ssa, LoweringError> {
+    fn lower(self, ctxt: &mut LoweringCtxt) -> Result<Self::Ssa, LoweringError> {
         let tid = ctxt.gen_tid();
         let fields: Result<Vec<(Ident, Ident)>, LoweringError> = self
             .fields
@@ -272,7 +296,7 @@ impl Lower for ast::Object {
 impl Lower for ast::Field {
     type Ssa = (Ident, Ident);
 
-    fn lower(self, ctxt: &mut Ctxt) -> Result<Self::Ssa, LoweringError> {
+    fn lower(self, ctxt: &mut LoweringCtxt) -> Result<Self::Ssa, LoweringError> {
         ctxt.push_suffix(self.ident.clone());
         let tid = self.ty.lower(ctxt)?;
         ctxt.pop_suffix();
@@ -284,7 +308,7 @@ impl Lower for ast::Field {
 impl Lower for ast::Func {
     type Ssa = Ident;
 
-    fn lower(self, ctxt: &mut Ctxt) -> Result<Self::Ssa, LoweringError> {
+    fn lower(self, ctxt: &mut LoweringCtxt) -> Result<Self::Ssa, LoweringError> {
         ctxt.begin_func();
         for param in self.params.fields {
             let vid = ctxt.make_unique(param.ident);
@@ -312,7 +336,7 @@ impl Lower for ast::Func {
 impl Lower for ast::Stmt {
     type Ssa = ();
 
-    fn lower(self, ctxt: &mut Ctxt) -> Result<Self::Ssa, LoweringError> {
+    fn lower(self, ctxt: &mut LoweringCtxt) -> Result<Self::Ssa, LoweringError> {
         match self {
             ast::Stmt::Decl(ast::Decl { ident, expr }) => {
                 let rhs = expr.lower(ctxt)?;

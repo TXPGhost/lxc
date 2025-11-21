@@ -17,7 +17,7 @@ pub enum Expr {
     Vector(Vector),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Lit {
     String(String),
     Integer(String),

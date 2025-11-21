@@ -1,9 +1,9 @@
 //! Single static assignment form. At this stage we reduce the AST to a flat structure of global
 //! declarations. Identifiers get unique names which correspond to the path taken to access them
 //! (e.g. `x@main` for a local variable within the `main` function). We also introduce names like
-//! `_v42@main` for local variables, or `_T6` for type declarations. When resolving identifiers we
-//! will first look for an exact match, then remove suffixes until we find something that works. In
-//! this way, locally-scoped values shadow their global counterparts.
+//! `_v42` for local variables, or `_T6` for type declarations. When resolving identifiers we will
+//! first look for an exact match, then remove suffixes until we find something that works. In this
+//! way, locally-scoped values shadow their global counterparts.
 
 use indexmap::IndexMap;
 
@@ -19,11 +19,17 @@ pub mod pretty_print;
 /// Semantic identifier lookup.
 pub mod lookup;
 
+/// Prelude definitions.
+pub mod prelude;
+
 /// Type checking pass.
 pub mod type_checking;
 
-/// Prelude definitions.
-pub mod prelude;
+/// Constant evaluation pass.
+pub mod const_eval;
+
+/// Dead code elimination.
+pub mod dead_code_elim;
 
 /// A program in its entirety.
 #[derive(Debug)]

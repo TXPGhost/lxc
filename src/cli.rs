@@ -10,7 +10,8 @@ use crate::{
     parser::{self, ParseError},
     ptree::pretty_print::{PrettyPrint, PrettyPrintCtxt},
     ssa::{
-        lowering::{Ctxt, Lower},
+        dead_code_elim::{DceAnalyze, DceCtxt},
+        lowering::{Lower, LoweringCtxt},
         pretty_print::PrettyPrintSsa,
     },
     style::*,
@@ -52,7 +53,7 @@ pub enum EvalResult {
 }
 
 /// Evaluates user input.
-pub fn eval(user_input: &str, ctxt: &mut Ctxt) -> EvalResult {
+pub fn eval(user_input: &str, ctxt: &mut LoweringCtxt) -> EvalResult {
     // Lexer step
     let mut lexer = match Lexer::new(user_input) {
         Ok(lexer) => lexer,
@@ -90,7 +91,7 @@ pub fn eval(user_input: &str, ctxt: &mut Ctxt) -> EvalResult {
     let ssa = ast.lower(ctxt).unwrap();
 
     // Main function resolution
-    let main = ctxt.prog().main();
+    let main = ctxt.prog().main_id();
     match main {
         Some(main) => println!(
             "{} {}",
@@ -112,6 +113,21 @@ pub fn eval(user_input: &str, ctxt: &mut Ctxt) -> EvalResult {
         "ENTRY".color(KWD),
         ssa.printable(PrettyPrintCtxt::default())
     );
+    println!("{}", ctxt.prog().printable_ssa(ctxt.prog()));
+
+    // Constant evaluation
+    ctxt.const_eval();
+    println!("{}", ctxt.prog().printable_ssa(ctxt.prog()));
+
+    // Dead code elimination
+    let mut dce = DceCtxt::new(ctxt.prog());
+    ctxt.prog().base_id().build_dce_graph(&mut dce);
+    println!("{dce}");
+    let reachable_idents = dce.compute_reachability(&match ctxt.prog().main_id() {
+        Some(main_id) => vec![ctxt.prog().base_id(), main_id],
+        None => vec![ctxt.prog().base_id()],
+    });
+    ctxt.prog_mut().eliminte_dead_code(&reachable_idents);
     println!("{}", ctxt.prog().printable_ssa(ctxt.prog()));
 
     // Code generation
@@ -146,7 +162,7 @@ pub fn repl() {
             continue;
         };
 
-        let mut ctxt = Ctxt::new();
+        let mut ctxt = LoweringCtxt::new();
         match eval(&user_input, &mut ctxt) {
             EvalResult::Success | EvalResult::Failure => user_input.clear(),
             EvalResult::Incomplete => {
@@ -159,7 +175,7 @@ pub fn repl() {
 
 /// Runs the file at the given path.
 pub fn run(file: PathBuf) {
-    let mut ctxt = Ctxt::new();
+    let mut ctxt = LoweringCtxt::new();
     eval(
         &read_to_string(file).expect("unable to read file"),
         &mut ctxt,

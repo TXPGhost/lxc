@@ -92,6 +92,11 @@ impl Type {
             Type::Void => 0,
         }
     }
+
+    /// Returns [true] if this type is a value (i.e. has a value determined at compile time).
+    pub fn is_value(&self) -> bool {
+        self.size(1) == 0
+    }
 }
 
 impl PartialEq for Type {

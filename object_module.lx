@@ -1,0 +1,35 @@
+ObjectModule (
+  isa: OwnedTargetIsa
+  object: Object
+  declarations: ModuleDeclarations
+  functions: SecondaryMap<FuncId, ?(id: SymbolId, bool: Bool)>
+  data_objects: SecondaryMap<DataId, ?(id: SymbolId, bool: Bool)>
+  relocs: []SymbolRelocs
+  libcalls: [ir.LibCall]SymbolId
+  libcall_names: (ir.LibCall) -> String&Send&Sync
+  known_symbols: [ir.KnownSymbol]SymbolId
+  known_labels: [id: FuncId, off: CodeOffset]SymbolId
+  per_function_section: Bool
+  per_data_object_section: Bool
+
+  new(builder: ObjectBuilder) {
+    object := Object.new(builder.bianry_format, builder.arch, builder.endian)
+    object.flags = builder.flags
+    object.set_subections_via_symbols()
+    object.add_file_symbol(builder.name)
+    ObjectModule(
+      builder.isa
+      object
+      ModuleDeclarations()
+      SecondaryMap()
+      SecondaryMap()
+      []
+      []
+      builder.libcall_names
+      []
+      []
+      builder.per_function_section
+      builder.per_data_object_section
+    )
+  }
+)

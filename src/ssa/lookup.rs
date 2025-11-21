@@ -27,7 +27,7 @@ impl Prog {
     }
 
     /// Finds the main function of the program.
-    pub fn main(&self) -> Option<Ident> {
+    pub fn main_id(&self) -> Option<Ident> {
         let base = self.base();
         let mut main = None;
         for (ident, field) in &base.fields {

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::ast::{Ident, IdentKind, Lit};
+use crate::ast::{Ident, IdentKind};
 use crate::ssa::lookup::LookupError;
 use crate::ssa::type_checking::{Type, TypeLookupError};
 use crate::ssa::{Func, Global, Prog, Stmt};
@@ -14,6 +14,14 @@ use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
 use cranelift_module::{Linkage, Module};
 use cranelift_object::{ObjectBuilder, ObjectModule};
 use thiserror::Error;
+
+// TODO
+// 1. compiling decls (using the type isn't quite right)
+// 2. dead code elimination
+// 3. compiling entire programs
+// 4. some way to run the code
+// 5. standard library and/or C ffi calls
+// 6. objects
 
 /// Code generation context.
 pub struct CodeGenCtxt<'a> {
@@ -54,7 +62,7 @@ impl<'a> CodeGenCtxt<'a> {
 
         let mut module = ObjectModule::new(builder);
         let mut ctx = module.make_context();
-        let main = self.prog.main().unwrap();
+        let main = self.prog.main_id().unwrap();
         let main = self.prog.lookup(&main).unwrap();
         let Global::Func(main) = main else {
             unreachable!()
