@@ -10,7 +10,12 @@ use std::{
     fmt::Display,
 };
 
-use crate::{ast::IdentKind, ssa::*, style::comma_join};
+use crate::{
+    ast::IdentKind,
+    ptree::pretty_print::{PrettyPrint, PrettyPrintCtxt},
+    ssa::*,
+    style::comma_join,
+};
 
 /// Dead code elimination context.
 pub struct DceCtxt<'a> {
@@ -101,8 +106,11 @@ pub trait DceAnalyze {
 
 impl DceAnalyze for Ident {
     fn build_dce_graph(&self, ctxt: &mut DceCtxt) -> Vec<Ident> {
+        if !matches!(self.kind, IdentKind::Value | IdentKind::Type) {
+            return vec![];
+        }
         if ctxt.refs.contains_key(self) {
-            println!("visiting twice: {}", self.name);
+            // for some reason this breaks things?
             // return ctxt.refs[self].clone();
         }
         let Ok(global) = ctxt.prog.lookup(self) else {

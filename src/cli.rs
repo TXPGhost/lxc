@@ -117,22 +117,24 @@ pub fn eval(user_input: &str, ctxt: &mut LoweringCtxt) -> EvalResult {
 
     // Constant evaluation
     ctxt.const_eval();
+    println!("\n{}", "-- Constant Evaluation".color(PNC));
     println!("{}", ctxt.prog().printable_ssa(ctxt.prog()));
 
     // Dead code elimination
     let mut dce = DceCtxt::new(ctxt.prog());
     ctxt.prog().base_id().build_dce_graph(&mut dce);
-    println!("{dce}");
     let reachable_idents = dce.compute_reachability(&match ctxt.prog().main_id() {
         Some(main_id) => vec![ctxt.prog().base_id(), main_id],
         None => vec![ctxt.prog().base_id()],
     });
     ctxt.prog_mut().eliminte_dead_code(&reachable_idents);
+    println!("\n{}", "-- Dead Code Elimination".color(PNC));
     println!("{}", ctxt.prog().printable_ssa(ctxt.prog()));
 
     // Code generation
     let code_gen = CodeGenCtxt::new(ctxt.prog());
     code_gen.generate("output.o").unwrap();
+    println!("\n{}", "-- Generated Code (Hexdump)".color(PNC));
     std::process::Command::new("objdump")
         .arg("-d")
         .arg("output.o")

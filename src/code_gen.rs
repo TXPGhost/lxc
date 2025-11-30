@@ -62,20 +62,21 @@ impl<'a> CodeGenCtxt<'a> {
 
         let mut module = ObjectModule::new(builder);
         let mut ctx = module.make_context();
-        let main = self.prog.main_id().unwrap();
-        let main = self.prog.lookup(&main).unwrap();
-        let Global::Func(main) = main else {
-            unreachable!()
-        };
-        let main = main.code_gen(&mut self)?;
-        verify_function(&main, &flags).unwrap();
 
-        ctx.func = main;
+        let base = self.prog.base();
+        for (ident, field) in &base.fields {
+            if let Global::Func(func) = self.prog.lookup(field).unwrap() {
+                let func = func.code_gen(&mut self)?;
+                verify_function(&func, &flags).unwrap();
 
-        let func_id = module
-            .declare_function("main", Linkage::Export, &ctx.func.signature)
-            .unwrap();
-        module.define_function(func_id, &mut ctx).unwrap();
+                ctx.func = func;
+
+                let func_id = module
+                    .declare_function(&ident.name, Linkage::Export, &ctx.func.signature)
+                    .unwrap();
+                module.define_function(func_id, &mut ctx).unwrap();
+            }
+        }
 
         let obj = module.finish();
         std::fs::write(path, obj.emit().unwrap()).unwrap();
@@ -237,11 +238,19 @@ fn compile_binop(
     rhs: &Ident,
     ctxt: &mut CodeGenCtxt,
 ) -> Value {
+    let lhs = *ctxt
+        .values
+        .get(lhs)
+        .unwrap_or_else(|| panic!("unable to find lhs {} of binop", lhs.name));
+    let rhs = *ctxt
+        .values
+        .get(rhs)
+        .unwrap_or_else(|| panic!("unable to find rhs {} of binop", rhs.name));
     match op {
-        "add" => builder.ins().iadd(ctxt.values[lhs], ctxt.values[rhs]),
-        "sub" => builder.ins().isub(ctxt.values[lhs], ctxt.values[rhs]),
-        "mul" => builder.ins().imul(ctxt.values[lhs], ctxt.values[rhs]),
-        "div" => builder.ins().sdiv(ctxt.values[lhs], ctxt.values[rhs]),
+        "add" => builder.ins().iadd(lhs, rhs),
+        "sub" => builder.ins().isub(lhs, rhs),
+        "mul" => builder.ins().imul(lhs, rhs),
+        "div" => builder.ins().sdiv(lhs, rhs),
         _ => unimplemented!(),
     }
 }

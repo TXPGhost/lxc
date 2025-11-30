@@ -4,7 +4,7 @@ use std::fmt::{self, Display};
 use super::*;
 use crate::{ssa::type_checking::Type, style::*};
 
-const PADDING: usize = 24;
+const PADDING: usize = 16;
 const INDENT: usize = 4;
 
 /// Custom trait for pretty printing with program context.
