@@ -87,7 +87,7 @@ impl Type {
             Type::ConstF64(_) => 0,
             Type::Bool => 1,
             Type::ConstBool(_) => 0,
-            Type::Object(fields) => todo!("size of compound types"),
+            Type::Object(_) => todo!("size of compound types"),
             Type::Func(_, _) => ptr_size,
             Type::Void => 0,
         }

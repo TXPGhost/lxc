@@ -3,7 +3,7 @@
 //! Takes known value types and materializes them into SSA constants. This removes dependencies on
 //! intermediate values thus enabling more aggressive dead code elimination down the line.
 
-use crate::ssa::{Global, Ident, Lit, Prog, Stmt, lowering::LoweringCtxt, type_checking::Type};
+use crate::ssa::{Global, Ident, Lit, Stmt, lowering::LoweringCtxt, type_checking::Type};
 
 impl LoweringCtxt {
     /// Evaluates constants with known types, materializing them into new constant literals.
@@ -22,7 +22,7 @@ impl LoweringCtxt {
                         true => Lit::True,
                         false => Lit::False,
                     },
-                    Type::Object(fields) => todo!(),
+                    Type::Object(_) => todo!(),
                     _ => unimplemented!(),
                 };
                 let vid = self.push_const(lit);

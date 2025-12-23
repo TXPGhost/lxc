@@ -471,9 +471,9 @@ pub fn parse_list<T>(
 
 /// Attempts to parse a function argument.
 pub fn parse_arg(lexer: &mut Lexer<'_, 2>) -> Result<Arg, ParseError> {
-    let ident = if lexer.peek_matches(Token::LIdent) && lexer.peekn_matches(1, Token::Colon) {
+    let ident = if lexer.peek_matches(Token::LIdent) && lexer.peekn_matches(1, Token::Equals) {
         let ident = parse_ident(lexer)?;
-        lexer.expect(Token::Colon)?;
+        lexer.expect(Token::Equals)?;
         Some(ident)
     } else {
         None
@@ -620,8 +620,6 @@ pub fn parse_field(lexer: &mut Lexer<'_, 2>) -> Result<Field, ParseError> {
                 default_value: None,
             });
         }
-    } else {
-        lexer.expect_any(&[Token::LParen, Token::Colon])?;
     }
 
     // Normal field
@@ -643,7 +641,6 @@ pub fn parse_field(lexer: &mut Lexer<'_, 2>) -> Result<Field, ParseError> {
 /// Attempts to parse a function parameter.
 pub fn parse_param(lexer: &mut Lexer<'_, 2>) -> Result<Param, ParseError> {
     let ident = parse_ident(lexer)?;
-    lexer.expect(Token::Colon)?;
     let ty = parse_expr(lexer)?;
     Ok(Param {
         is_mut: false,

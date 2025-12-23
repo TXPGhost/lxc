@@ -28,16 +28,26 @@ pub struct CodeGenCtxt<'a> {
     /// The program currently being generated.
     pub prog: &'a Prog,
 
+    /// Code generation settings,
+    pub settings: CodeGenSettings,
+
     /// Mapping from identifiers to cranelift values.
     pub values: HashMap<Ident, Value>,
 }
 
+/// Code generation settings.
+pub struct CodeGenSettings {
+    /// Whether to emit a native binary,
+    pub emit_bin: bool,
+}
+
 impl<'a> CodeGenCtxt<'a> {
     /// Starts a new code generation context from the given program.
-    pub fn new(prog: &'a Prog) -> Self {
+    pub fn new(prog: &'a Prog, settings: CodeGenSettings) -> Self {
         assert!(prog.types.is_some());
         Self {
             prog,
+            settings,
             values: HashMap::new(),
         }
     }
@@ -66,7 +76,7 @@ impl<'a> CodeGenCtxt<'a> {
         let base = self.prog.base();
         for (ident, field) in &base.fields {
             if let Global::Func(func) = self.prog.lookup(field).unwrap() {
-                let func = func.code_gen(&mut self)?;
+                let func = func.code_gen(&mut self, &mut module)?;
                 verify_function(&func, &flags).unwrap();
 
                 ctx.func = func;
@@ -110,13 +120,21 @@ pub trait CodeGen {
     type Output;
 
     /// Generates IR code from the given type with the provided context.
-    fn code_gen(&self, ctxt: &mut CodeGenCtxt) -> Result<Self::Output, CodeGenError>;
+    fn code_gen(
+        &self,
+        ctxt: &mut CodeGenCtxt,
+        module: &mut dyn Module,
+    ) -> Result<Self::Output, CodeGenError>;
 }
 
 impl CodeGen for Func {
     type Output = Function;
 
-    fn code_gen(&self, ctxt: &mut CodeGenCtxt) -> Result<Self::Output, CodeGenError> {
+    fn code_gen(
+        &self,
+        ctxt: &mut CodeGenCtxt,
+        module: &mut dyn Module,
+    ) -> Result<Self::Output, CodeGenError> {
         let mut sig = Signature::new(CallConv::SystemV);
         let params: Result<Vec<(&Ident, AbiParam)>, CodeGenError> = self
             .params
@@ -143,7 +161,7 @@ impl CodeGen for Func {
             sig.returns.push(compile_type_to_abi_param(ret_ty)?);
         }
         let mut fn_builder_ctx = FunctionBuilderContext::new();
-        let mut func = Function::with_name_signature(UserFuncName::user(0, 0), sig); // todo: change name
+        let mut func = Function::with_name_signature(UserFuncName::user(0, 0), sig.clone()); // todo: change name?
         {
             let mut builder = FunctionBuilder::new(&mut func, &mut fn_builder_ctx);
 
@@ -166,6 +184,11 @@ impl CodeGen for Func {
                     unreachable!("should always be a stmt");
                 };
                 match stmt {
+                    Stmt::Decl(id) => {
+                        let ty = ctxt.prog.types.as_ref().unwrap().lookup(id)?;
+                        let res = compile_decl(ctxt, &mut builder, id, ty)?;
+                        ctxt.values.insert(ident.clone(), res);
+                    }
                     Stmt::Call(call) => match call.func.kind {
                         IdentKind::BuiltinValue => match call.func.name.as_str() {
                             "add" | "sub" | "mul" | "div" => {
@@ -182,13 +205,26 @@ impl CodeGen for Func {
                             }
                             _ => unimplemented!(),
                         },
-                        _ => todo!("external function call"),
+                        IdentKind::Value => {
+                            let args: Vec<Value> = call
+                                .args
+                                .iter()
+                                .map(|arg| {
+                                    *ctxt.values.get(arg).unwrap_or_else(|| {
+                                        panic!("value lookup failed: {}", arg.name)
+                                    })
+                                })
+                                .collect();
+
+                            let callee = module
+                                .declare_function(&call.func.name, Linkage::Import, &sig)
+                                .expect("problem declaring function");
+                            let callee = module.declare_func_in_func(callee, builder.func);
+
+                            builder.ins().call(callee, &args);
+                        }
+                        _ => todo!("type functions"),
                     },
-                    Stmt::Decl(id) => {
-                        let ty = ctxt.prog.types.as_ref().unwrap().lookup(id)?;
-                        let res = compile_decl(&mut builder, ty)?;
-                        ctxt.values.insert(ident.clone(), res);
-                    }
                 }
             }
 
@@ -196,7 +232,9 @@ impl CodeGen for Func {
                 let ret_val = match ctxt.values.get(ret_id) {
                     Some(value) => *value,
                     None => compile_decl(
+                        ctxt,
                         &mut builder,
+                        ret_id,
                         ctxt.prog.types.as_ref().unwrap().lookup(ret_id)?,
                     )?,
                 };
@@ -222,12 +260,17 @@ fn compile_type_to_abi_param(ty: Type) -> Result<AbiParam, CodeGenError> {
     }
 }
 
-fn compile_decl(builder: &mut FunctionBuilder, ty: Type) -> Result<Value, CodeGenError> {
+fn compile_decl(
+    ctxt: &CodeGenCtxt,
+    builder: &mut FunctionBuilder,
+    id: &Ident,
+    ty: Type,
+) -> Result<Value, CodeGenError> {
     Ok(match ty {
         Type::ConstI64(i) => builder.ins().iconst(I64, i),
         Type::ConstF64(f) => builder.ins().f64const(f),
         Type::ConstBool(_) => todo!(),
-        _ => return Err(CodeGenError::IllegalConstant(ty)),
+        _ => *ctxt.values.get(id).expect("unresolved value"),
     })
 }
 

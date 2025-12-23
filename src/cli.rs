@@ -5,7 +5,7 @@ use colored::Colorize;
 
 use crate::{
     ast,
-    code_gen::CodeGenCtxt,
+    code_gen::{CodeGenCtxt, CodeGenSettings},
     lexer::Lexer,
     parser::{self, ParseError},
     ptree::pretty_print::{PrettyPrint, PrettyPrintCtxt},
@@ -132,7 +132,7 @@ pub fn eval(user_input: &str, ctxt: &mut LoweringCtxt) -> EvalResult {
     println!("{}", ctxt.prog().printable_ssa(ctxt.prog()));
 
     // Code generation
-    let code_gen = CodeGenCtxt::new(ctxt.prog());
+    let code_gen = CodeGenCtxt::new(ctxt.prog(), CodeGenSettings { emit_bin: true });
     code_gen.generate("output.o").unwrap();
     println!("\n{}", "-- Generated Code (Hexdump)".color(PNC));
     std::process::Command::new("objdump")

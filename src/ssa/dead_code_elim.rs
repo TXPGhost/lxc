@@ -10,12 +10,7 @@ use std::{
     fmt::Display,
 };
 
-use crate::{
-    ast::IdentKind,
-    ptree::pretty_print::{PrettyPrint, PrettyPrintCtxt},
-    ssa::*,
-    style::comma_join,
-};
+use crate::{ast::IdentKind, ssa::*, style::comma_join};
 
 /// Dead code elimination context.
 pub struct DceCtxt<'a> {

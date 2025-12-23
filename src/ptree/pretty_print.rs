@@ -15,7 +15,7 @@ pub trait PrettyPrint {
     fn pretty_print(&self, f: &mut fmt::Formatter<'_>, ppc: PrettyPrintCtxt) -> fmt::Result;
 
     /// Wraps this ptree type into a printable struct with pretty print context (via [Display]).
-    fn printable(&self, ctxt: PrettyPrintCtxt) -> Printable<Self>
+    fn printable(&self, ctxt: PrettyPrintCtxt) -> Printable<'_, Self>
     where
         Self: Sized,
     {
@@ -168,8 +168,7 @@ impl PrettyPrint for Field {
             },
             match self.ty {
                 Expr::Func(_) => "",
-                Expr::Object(_) => " ",
-                _ => ": ",
+                _ => " ",
             }
             .color(PNC),
             &self.ty.printable(ppc)

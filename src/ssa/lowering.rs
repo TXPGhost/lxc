@@ -171,7 +171,7 @@ impl LoweringCtxt {
             .ret = Some(ret);
     }
 
-    // Begins a new function lowering.
+    /// Begins a new function lowering.
     pub fn begin_func(&mut self) {
         if self.func.is_some() {
             panic!("called begin_func with active func");
@@ -183,7 +183,7 @@ impl LoweringCtxt {
         });
     }
 
-    // Pushes the currently active function to the global context.
+    /// Pushes the currently active function to the global context.
     pub fn end_func(&mut self) -> Ident {
         let vid = self.gen_vid();
         self.prog.globals.insert(
@@ -318,8 +318,7 @@ impl Lower for ast::Func {
         }
         if let Some(body) = self.body {
             let mut iter = body.stmts.into_iter().peekable();
-            loop {
-                let Some(stmt) = iter.next() else { break };
+            while let Some(stmt) = iter.next() {
                 match stmt {
                     ast::Stmt::Return(ret) if iter.peek().is_none() => {
                         let ret = ret.lower(ctxt)?;
