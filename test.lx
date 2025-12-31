@@ -1,12 +1,12 @@
-is_true(bool: Bool) { true }
+is_true(bool Bool) { true }
 
-compare(lhs: I64, rhs: I64) {
-	lhs == rhs
+compare(lhs I64, rhs I64) {
+  lhs == rhs
 }
 
 main() {
-	x = 10
-	y = 20
-	eq = x == y
-	ne = x != y
+  x = 10
+  y = 20
+  eq = x == y
+  ne = x != y
 }

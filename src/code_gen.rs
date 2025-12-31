@@ -5,6 +5,7 @@ use crate::ssa::lookup::LookupError;
 use crate::ssa::type_checking::{Type, TypeLookupError};
 use crate::ssa::{Func, Global, Prog, Stmt};
 
+use cranelift_codegen::ir::condcodes::IntCC;
 use cranelift_codegen::ir::{AbiParam, Function, InstBuilder, Signature, UserFuncName};
 use cranelift_codegen::ir::{Value, types::*};
 use cranelift_codegen::isa::CallConv;
@@ -191,7 +192,7 @@ impl CodeGen for Func {
                     }
                     Stmt::Call(call) => match call.func.kind {
                         IdentKind::BuiltinValue => match call.func.name.as_str() {
-                            "add" | "sub" | "mul" | "div" => {
+                            "add" | "sub" | "mul" | "div" | "eq" | "ne" => {
                                 let lhs = &call.args[0];
                                 let rhs = &call.args[1];
                                 let res = compile_binop(
@@ -256,6 +257,8 @@ fn compile_type_to_abi_param(ty: Type) -> Result<AbiParam, CodeGenError> {
         Type::F64 => Ok(AbiParam::new(F64)),
         Type::ConstI64(_) => Ok(AbiParam::new(I64)), // TEMPORARY
         Type::ConstF64(_) => Ok(AbiParam::new(F64)), // TEMPORARY
+        Type::Bool => Ok(AbiParam::new(I8)),
+        Type::ConstBool(_) => Ok(AbiParam::new(I8)), // TEMPORARY
         ty => Err(CodeGenError::IllegalArgumentType(ty)),
     }
 }
@@ -269,7 +272,7 @@ fn compile_decl(
     Ok(match ty {
         Type::ConstI64(i) => builder.ins().iconst(I64, i),
         Type::ConstF64(f) => builder.ins().f64const(f),
-        Type::ConstBool(_) => todo!(),
+        Type::ConstBool(b) => builder.ins().iconst(I8, b as i64),
         _ => *ctxt.values.get(id).expect("unresolved value"),
     })
 }
@@ -294,6 +297,8 @@ fn compile_binop(
         "sub" => builder.ins().isub(lhs, rhs),
         "mul" => builder.ins().imul(lhs, rhs),
         "div" => builder.ins().sdiv(lhs, rhs),
+        "eq" => builder.ins().icmp(IntCC::Equal, lhs, rhs),
+        "ne" => builder.ins().icmp(IntCC::NotEqual, lhs, rhs),
         _ => unimplemented!(),
     }
 }
